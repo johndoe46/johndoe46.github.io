@@ -1176,9 +1176,9 @@ function drawScope() {
   context2d.clearRect(0, 0, width, height);
 
   const background = context2d.createLinearGradient(0, 0, 0, height);
-  background.addColorStop(0, '#07181f');
-  background.addColorStop(0.55, '#040d12');
-  background.addColorStop(1, '#02090c');
+  background.addColorStop(0, '#090908');
+  background.addColorStop(0.55, '#050504');
+  background.addColorStop(1, '#030302');
   context2d.fillStyle = background;
   context2d.fillRect(0, 0, width, height);
 
@@ -1189,7 +1189,7 @@ function drawScope() {
   const amplitude = innerHeight * 0.42;
 
   context2d.lineWidth = Math.max(1, dpr * 0.75);
-  context2d.strokeStyle = 'rgba(23, 78, 95, 0.55)';
+  context2d.strokeStyle = 'rgba(236, 235, 224, 0.16)';
 
   for (let i = 1; i < 6; i += 1) {
     const x = inset + (innerWidth * i) / 6;
@@ -1207,7 +1207,7 @@ function drawScope() {
     context2d.stroke();
   }
 
-  context2d.strokeStyle = `rgba(90, 184, 204, ${0.28 + activity * 0.22})`;
+  context2d.strokeStyle = `rgba(236, 235, 224, ${0.3 + activity * 0.3})`;
   context2d.beginPath();
   context2d.moveTo(inset, centreY);
   context2d.lineTo(width - inset, centreY);
@@ -1232,8 +1232,8 @@ function drawScope() {
     }
 
     context2d.shadowBlur = (5 + activity * 10) * dpr;
-    context2d.shadowColor = 'rgba(143, 230, 242, 0.65)';
-    context2d.strokeStyle = `rgba(200, 248, 255, ${0.55 + activity * 0.4})`;
+    context2d.shadowColor = 'rgba(236, 235, 224, 0.45)';
+    context2d.strokeStyle = `rgba(236, 235, 224, ${0.62 + activity * 0.34})`;
     context2d.lineWidth = 1.35 * dpr;
     context2d.stroke();
     context2d.shadowBlur = 0;

@@ -4,14 +4,41 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#070706">
   <title>Tapage — Web Kick Machine</title>
   <meta name="description" content="Tapage, the fixed-point FM kick machine, running in the browser through WebAssembly.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="theme.css">
 </head>
 <body>
-  <div class="page">
-    <main class="unit" id="unit" aria-label="Tapage web kick machine">
+  <div class="crt" aria-hidden="true"></div>
+
+  <header class="menubar">
+    <div class="menubar-inner">
+      <a class="menubar-brand" href="../"><span class="brand-mark" aria-hidden="true"></span>JOHNDOE46.GITHUB.IO</a>
+      <span class="menubar-menu" aria-hidden="true">
+        <span class="is-active">Tapage</span>
+        <span>Kick machine</span>
+        <span>6 voices</span>
+      </span>
+      <span class="menubar-right">
+        <span class="led-indicator" aria-hidden="true"></span>
+        <time id="clock">--:--:--</time>
+        <a class="menubar-link" href="../">&larr; Index</a>
+      </span>
+    </div>
+  </header>
+
+  <div class="app-frame">
+    <div class="app-titlebar">
+      <span class="titlebar-box" aria-hidden="true"></span>
+      <span class="app-titlebar-text">TAPAGE — C:\AUDIO\TAPAGE</span>
+      <span class="titlebar-box" aria-hidden="true"></span>
+    </div>
+
+    <div class="page">
+      <main class="unit" id="unit" aria-label="Tapage web kick machine">
       <div class="circuit" aria-hidden="true"></div>
 
       <header class="masthead">
@@ -92,7 +119,8 @@
         <span><b>NOTE + VELOCITY + PREVIEW</b> · WAV EXPORT USES THE SAME SETTINGS</span>
         <span id="footStatus" class="foot-right">CLICK POWER OR PRESS PREVIEW TO START</span>
       </footer>
-    </main>
+      </main>
+    </div>
   </div>
 
   <noscript>
@@ -100,5 +128,20 @@
   </noscript>
 
   <script type="module" src="app.js"></script>
+  <script>
+    (() => {
+      const clock = document.getElementById("clock");
+      const pad = (value) => String(value).padStart(2, "0");
+
+      function tick() {
+        const now = new Date();
+        clock.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+        clock.setAttribute("datetime", now.toISOString());
+      }
+
+      tick();
+      window.setInterval(tick, 1000);
+    })();
+  </script>
 </body>
 </html>

@@ -1,0 +1,729 @@
+/* Atari-style monochrome theme for Tapage. */
+
+:root {
+  --bg: #070706;
+  --screen: #050504;
+  --panel: #0b0b09;
+  --panel-soft: #10100d;
+  --line: #ecebe0;
+  --line-mid: #5d5c50;
+  --line-soft: #2c2c26;
+  --dim: #85836f;
+  --label: #b9b7a8;
+  --bright: #ecebe0;
+  --accent: #ecebe0;
+  --danger: #ecebe0;
+  --mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --glow: none;
+  --frame-max: 1080px;
+  --pad: clamp(14px, 3vw, 28px);
+  --panel-pad: clamp(14px, 3vw, 28px);
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+:root *,
+:root *::before,
+:root *::after {
+  border-radius: 0 !important;
+}
+
+html {
+  min-height: 100%;
+  background: var(--bg);
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  overflow-x: hidden;
+  color: var(--bright);
+  font-family: var(--mono);
+  background:
+    radial-gradient(ellipse 120% 70% at 50% -10%, rgba(236, 235, 224, 0.055), transparent 58%),
+    var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(236, 235, 224, 0.07) 1px, transparent 1px);
+  background-size: 6px 6px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 42%, transparent 0 32%, #000 88%);
+  mask-image: radial-gradient(ellipse at 50% 42%, transparent 0 32%, #000 88%);
+  opacity: 0.55;
+}
+
+::selection {
+  background: var(--bright);
+  color: var(--bg);
+}
+
+* {
+  scrollbar-color: var(--line-mid) var(--bg);
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+  border-left: 1px solid var(--line-soft);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #5d5c50;
+  border: 2px solid var(--bg);
+}
+
+.crt {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.28) 0,
+      rgba(0, 0, 0, 0.28) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    radial-gradient(ellipse at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.4) 100%);
+  opacity: 0.38;
+}
+
+/* ── Menu bar ────────────────────────────────────────────── */
+
+.menubar {
+  position: relative;
+  z-index: 3;
+  border-bottom: 1px solid var(--line-mid);
+  background: rgba(7, 7, 6, 0.94);
+}
+
+.menubar-inner {
+  width: min(var(--frame-max), calc(100% - 2 * var(--pad)));
+  height: 30px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--label);
+  white-space: nowrap;
+}
+
+.menubar-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--bright);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.menubar-brand:hover,
+.menubar-brand:focus-visible {
+  color: var(--bright);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.brand-mark {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  background: var(--bright);
+  box-shadow: inset 0 0 0 2px var(--bg);
+}
+
+.menubar-menu {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 6px;
+}
+
+.menubar-menu span {
+  padding: 3px 9px;
+}
+
+.menubar-menu .is-active {
+  background: var(--bright);
+  color: var(--bg);
+  font-weight: 700;
+}
+
+.menubar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.led-indicator {
+  width: 5px;
+  height: 5px;
+  background: var(--bright);
+  box-shadow: 0 0 7px rgba(236, 235, 224, 0.5);
+  animation: blink 2.6s steps(1, end) infinite;
+}
+
+.menubar-link {
+  padding: 2px 6px;
+  border: 1px solid var(--line-soft);
+  color: var(--bright);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+}
+
+.menubar-link:hover,
+.menubar-link:focus-visible {
+  background: var(--bright);
+  color: var(--bg);
+  border-color: var(--bright);
+  text-decoration: none;
+}
+
+/* ── App window ──────────────────────────────────────────── */
+
+.app-frame {
+  width: min(var(--frame-max), calc(100% - 2 * var(--pad)));
+  margin: 24px auto;
+  border: 2px solid var(--line);
+  background: var(--panel);
+  box-shadow:
+    10px 10px 0 var(--line-soft),
+    0 30px 90px rgba(0, 0, 0, 0.62);
+}
+
+.app-frame .page {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.app-titlebar {
+  height: 30px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bright);
+  color: var(--bg);
+  border-bottom: 2px solid var(--bg);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.titlebar-box {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border: 2px solid var(--bg);
+}
+
+.app-titlebar-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-frame .unit {
+  border: 0;
+  border-radius: 0;
+  background: var(--panel);
+  box-shadow: none;
+  padding: 24px var(--panel-pad) 0;
+}
+
+.unit::after {
+  display: none;
+}
+
+.circuit {
+  opacity: 1;
+  background-image:
+    linear-gradient(90deg, transparent 0 81px, rgba(236, 235, 224, 0.035) 81px 82px, transparent 82px 100%),
+    linear-gradient(90deg, transparent 0 247px, rgba(236, 235, 224, 0.025) 247px 248px, transparent 248px 100%),
+    linear-gradient(0deg, transparent 0 64px, rgba(236, 235, 224, 0.03) 64px 65px, transparent 65px 100%),
+    linear-gradient(0deg, transparent 0 189px, rgba(236, 235, 224, 0.02) 189px 190px, transparent 190px 100%),
+    repeating-linear-gradient(115deg, transparent 0 37px, rgba(236, 235, 224, 0.018) 37px 38px, transparent 38px 79px),
+    repeating-linear-gradient(25deg, transparent 0 53px, rgba(236, 235, 224, 0.012) 53px 54px, transparent 54px 111px);
+  mask-image: radial-gradient(ellipse at 50% 35%, black, transparent 78%);
+}
+
+/* ── Masthead / scope / system ───────────────────────────── */
+
+.masthead {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.brand h1 {
+  color: var(--bright);
+  text-shadow: 0 0 12px rgba(236, 235, 224, 0.18);
+}
+
+.brand h1 .cursor {
+  background: var(--bright);
+  box-shadow: none;
+}
+
+.brand p {
+  color: var(--dim);
+}
+
+.scope-shell {
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: var(--screen);
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.8);
+}
+
+.scope-hud {
+  color: var(--label);
+  text-shadow: none;
+}
+
+#scopeStatus {
+  color: var(--dim);
+}
+
+.status {
+  color: var(--label);
+}
+
+.led {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: var(--screen);
+  box-shadow: none;
+}
+
+.led.on {
+  background: var(--bright);
+  border-color: var(--bright);
+  box-shadow: none;
+  animation: pulse 2.2s steps(1, end) infinite;
+}
+
+.led.error {
+  background: var(--bright);
+  border-color: var(--bright);
+  box-shadow: none;
+  animation: blink 0.75s steps(1, end) infinite;
+}
+
+.power {
+  border: 1px solid var(--bright);
+  border-radius: 0;
+  background: var(--bright);
+  color: var(--bg);
+  box-shadow: none;
+  transition: none;
+}
+
+.power:hover {
+  border-color: var(--bright);
+  background: transparent;
+  color: var(--bright);
+  box-shadow: none;
+}
+
+.power.running {
+  border-color: var(--line-soft);
+  background: transparent;
+  color: var(--label);
+}
+
+.monitor {
+  color: var(--dim);
+}
+
+.monitor output {
+  color: var(--bright);
+}
+
+input[type="range"] {
+  height: 4px;
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: linear-gradient(90deg, var(--dim), var(--line-soft));
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--bg);
+  border-radius: 0;
+  background: var(--bright);
+  box-shadow: none;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--bg);
+  border-radius: 0;
+  background: var(--bright);
+  box-shadow: none;
+}
+
+input[type="range"]:focus-visible {
+  outline: 2px dashed var(--bright);
+  outline-offset: 3px;
+}
+
+/* ── Presets ─────────────────────────────────────────────── */
+
+.preset-bar {
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: var(--screen);
+}
+
+.preset-title {
+  color: var(--label);
+}
+
+.step-button {
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: transparent;
+  color: var(--bright);
+  transition: none;
+}
+
+.step-button:hover {
+  border-color: var(--bright);
+  background: var(--bright);
+  color: var(--bg);
+}
+
+#presetSelect {
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background-color: var(--screen);
+  color: var(--bright);
+}
+
+.preset-meta {
+  color: var(--dim);
+}
+
+select,
+input[type="number"] {
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background-color: var(--screen);
+  color: var(--bright);
+  transition: none;
+}
+
+select {
+  /* Keep the app's arrow geometry, but tint it with the monochrome palette. */
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--dim) 50%),
+    linear-gradient(135deg, var(--dim) 50%, transparent 50%);
+}
+
+select:focus-visible,
+input[type="number"]:focus-visible,
+.btn:focus-visible,
+.power:focus-visible,
+.toggle:focus-visible {
+  outline: 2px dashed var(--line);
+  outline-offset: 2px;
+}
+
+/* ── Modules and knobs ───────────────────────────────────── */
+
+.module + .module {
+  border-top: 1px solid var(--line-soft);
+}
+
+.module-title {
+  color: var(--bright);
+  text-shadow: none;
+}
+
+.module-rule {
+  background: linear-gradient(90deg, var(--line-soft), transparent);
+}
+
+.module-note {
+  color: var(--dim);
+}
+
+.knob {
+  outline: none;
+}
+
+.knob-track {
+  stroke: rgba(236, 235, 224, 0.22);
+  stroke-width: 2.2;
+}
+
+.knob-active {
+  stroke: var(--bright);
+  stroke-width: 2.3;
+  filter: none;
+}
+
+.knob-ticks line {
+  stroke: rgba(236, 235, 224, 0.4);
+}
+
+.knob-body {
+  fill: var(--screen);
+  stroke: var(--line-soft);
+}
+
+.knob-inner {
+  stroke: rgba(236, 235, 224, 0.16);
+}
+
+.knob-pointer {
+  stroke: var(--bright);
+  filter: none;
+}
+
+.knob-ring {
+  stroke: rgba(236, 235, 224, 0.1);
+}
+
+.knob:focus-visible .knob-face {
+  filter: none;
+  outline: 2px dashed var(--line);
+  outline-offset: 3px;
+}
+
+.knob-label {
+  color: var(--label);
+}
+
+.knob-value {
+  min-width: 46px;
+  padding: 3px 6px 2px;
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: var(--screen);
+  color: var(--bright);
+  box-shadow: none;
+}
+
+.control-label {
+  color: var(--label);
+}
+
+/* ── Performance panel ───────────────────────────────────── */
+
+.note-panel {
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: var(--screen);
+}
+
+.note-title {
+  color: var(--label);
+}
+
+.note-help {
+  color: var(--dim);
+}
+
+/* ── Buttons / toggles ───────────────────────────────────── */
+
+.btn,
+.toggle {
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: transparent;
+  color: var(--label);
+  box-shadow: none;
+  transition: none;
+}
+
+.btn:hover,
+.toggle:hover {
+  border-color: var(--bright);
+  background: var(--bright);
+  color: var(--bg);
+}
+
+.btn.primary {
+  border-color: var(--bright);
+  background: var(--bright);
+  color: var(--bg);
+}
+
+.btn.primary:hover {
+  border-color: var(--bright);
+  background: transparent;
+  color: var(--bright);
+}
+
+.btn.on,
+.toggle.on {
+  border-color: var(--bright);
+  background: var(--bright);
+  color: var(--bg);
+  box-shadow: none;
+}
+
+.btn.on:hover,
+.toggle.on:hover {
+  border-color: var(--bright);
+  background: transparent;
+  color: var(--bright);
+}
+
+.btn:disabled,
+.toggle:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.btn.busy {
+  border-color: var(--bright);
+  color: var(--bright);
+}
+
+/* ── Footer status bar ───────────────────────────────────── */
+
+.app-frame .footer {
+  margin: 18px calc(-1 * var(--panel-pad)) 0;
+  padding: 9px var(--panel-pad);
+  border-top: 2px solid var(--bg);
+  background: var(--bright);
+  color: var(--bg);
+  font-size: 8px;
+  letter-spacing: 0.11em;
+  line-height: 1.5;
+}
+
+.footer b {
+  color: var(--bg);
+}
+
+.foot-right {
+  color: var(--bg);
+}
+
+.foot-right.error {
+  color: var(--bg);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* ── Misc ────────────────────────────────────────────────── */
+
+.noscript {
+  max-width: none;
+  margin: 24px auto;
+  padding: 12px 16px;
+  border: 2px solid var(--bright);
+  background: var(--bright);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px dashed var(--line);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .menubar-menu {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  :root {
+    --pad: 12px;
+    --panel-pad: 14px;
+  }
+
+  .app-frame {
+    margin: 14px auto;
+    box-shadow: 6px 6px 0 var(--line-soft);
+  }
+
+  .app-frame .unit {
+    padding-top: 18px;
+  }
+
+  .app-titlebar {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+  }
+
+  .menubar-right .led-indicator {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .menubar-inner {
+    gap: 10px;
+  }
+
+  .menubar-inner time {
+    display: none;
+  }
+
+  .app-frame .footer {
+    font-size: 7.5px;
+  }
+}

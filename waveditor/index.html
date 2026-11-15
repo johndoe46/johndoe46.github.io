@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Waveditor — Monochrome Audio Workstation</title>
+  <meta name="description" content="A local, monochrome waveform editor. Open, trim, slice, fade, reverse and export audio without uploading it.">
+  <meta name="theme-color" content="#070706">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23070706'/%3E%3Crect x='2' y='2' width='12' height='12' fill='%23ecebe0'/%3E%3Crect x='5' y='5' width='6' height='6' fill='%23070706'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="lib/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="md-waveditor.css">
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body data-md-wave-editor-host="open-file">
+  <div class="crt" aria-hidden="true"></div>
+
+  <header class="menubar">
+    <div class="menubar-inner">
+      <a class="menubar-brand" href="../"><span class="brand-mark" aria-hidden="true"></span>JOHNDOE46.GITHUB.IO</a>
+      <span class="menubar-menu" aria-hidden="true">
+        <span class="is-active">Waveditor</span>
+        <span>Audio</span>
+        <span>1-bit</span>
+      </span>
+      <span class="menubar-right">
+        <span class="led" aria-hidden="true"></span>
+        <time id="clock">--:--:--</time>
+        <a class="menubar-link" href="../">&larr; Index</a>
+      </span>
+    </div>
+  </header>
+
+  <div class="app-frame">
+    <div class="app-titlebar">
+      <span class="titlebar-box" aria-hidden="true"></span>
+      <span class="app-titlebar-text">WAVEDITOR — C:\TOOLS\WAVEDITOR</span>
+      <span class="titlebar-box" aria-hidden="true"></span>
+    </div>
+
+    <main class="audio-file-shell audio-file-shell-fluid app-main">
+      <div class="app-actions">
+        <div class="app-actions-head">
+          <span>File / Image</span>
+          <span>All processing stays on this computer</span>
+        </div>
+        <div class="app-actions-row">
+          <button class="btn btn-primary btn-sm" id="openLocalFileButton" type="button" title="Choose an audio or image file from this computer." data-ui-hint="Choose an audio file, or an image file to interpret using the selected image mode, and load it into the editor.">
+            <i class="bi bi-folder2-open" aria-hidden="true"></i>
+            <span>Open File</span>
+          </button>
+          <button class="btn btn-outline-danger btn-sm" id="recordAudioButton" type="button" title="Record raw PCM audio from the microphone into a new editor tab without using a lossy codec." data-ui-hint="Record raw PCM audio from the microphone into a new editor tab without using a lossy codec.">
+            <i class="bi bi-record-circle" id="recordAudioButtonIcon" aria-hidden="true"></i>
+            <span id="recordAudioButtonLabel">Record</span>
+          </button>
+          <label class="image-mode" for="imageInterpretationSelect" data-ui-hint="Choose how image files are converted into audio when opened.">
+            <span>Image</span>
+            <select class="form-select" id="imageInterpretationSelect" title="Choose how image files are converted into audio when opened." data-ui-hint="Choose how image files are converted into audio when opened.">
+              <option value="waveform" selected>Waveform Pixels</option>
+              <option value="spectrogram">Spectrogram</option>
+            </select>
+          </label>
+          <button class="btn btn-outline-success btn-sm" id="exportLocalFileButton" type="button" title="Download the edited audio file. Preserve WAV when possible, otherwise export a 24-bit 48 kHz WAV." data-ui-hint="Download the edited audio file. Preserve WAV when possible, otherwise export a 24-bit 48 kHz WAV." disabled>
+            <i class="bi bi-download" aria-hidden="true"></i>
+            <span>Export File</span>
+          </button>
+          <button class="btn btn-outline-success btn-sm" id="exportMarkerRegionsButton" type="button" title="Download one WAV file per region delimited by markers." data-ui-hint="Download one WAV file per region delimited by markers, using the current edited audio." disabled>
+            <i class="bi bi-collection-play" aria-hidden="true"></i>
+            <span>Export Marker Regions</span>
+          </button>
+          <button class="btn btn-outline-success btn-sm" id="exportImageButton" type="button" title="Download the active audio buffer as a grayscale PNG image." data-ui-hint="Download the active audio buffer as a grayscale bitmap image, with samples scanned left to right." disabled>
+            <i class="bi bi-file-earmark-image" aria-hidden="true"></i>
+            <span>Export Image</span>
+          </button>
+        </div>
+      </div>
+
+      <input class="d-none" id="openLocalFileInput" type="file" accept="audio/*,image/*,.wav,.flac,.mp3,.m4a,.ogg,.aif,.aiff,.png,.jpg,.jpeg,.gif,.webp,.bmp">
+
+      <md-waveditor id="localAudioEditor" hide-export></md-waveditor>
+    </main>
+  </div>
+
+  <noscript>
+    <p class="noscript">Waveditor needs JavaScript and Web Audio enabled to run.</p>
+  </noscript>
+
+  <script src="md-waveditor-core.js"></script>
+  <script src="lib/bootstrap/bootstrap.bundle.min.js"></script>
+  <script src="md-waveditor.js"></script>
+  <script src="open-file.js"></script>
+  <script>
+    (() => {
+      const clock = document.getElementById("clock");
+      const pad = (value) => String(value).padStart(2, "0");
+
+      function tick() {
+        const now = new Date();
+        clock.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+        clock.setAttribute("datetime", now.toISOString());
+      }
+
+      tick();
+      window.setInterval(tick, 1000);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Loopplayer — 3030 Music Loop Lab</title>
+    <meta name="description" content="An eight-slot monochrome WAV loop lab. Detect BPM, set beats, filter loops, and export WAVs locally.">
+    <meta name="theme-color" content="#070706">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23070706'/%3E%3Crect x='2' y='2' width='12' height='12' fill='%23ecebe0'/%3E%3Crect x='5' y='5' width='6' height='6' fill='%23070706'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="theme.css">
+  </head>
+  <body>
+    <div class="crt" aria-hidden="true"></div>
+
+    <header class="menubar">
+      <div class="menubar-inner">
+        <a class="menubar-brand" href="../"><span class="brand-mark" aria-hidden="true"></span>JOHNDOE46.GITHUB.IO</a>
+        <span class="menubar-menu" aria-hidden="true">
+          <span class="is-active">Loopplayer</span>
+          <span>3030 Music</span>
+          <span>8 slots</span>
+        </span>
+        <span class="menubar-right">
+          <span class="led" aria-hidden="true"></span>
+          <time id="clock">--:--:--</time>
+          <a class="menubar-link" href="../">&larr; Index</a>
+        </span>
+      </div>
+    </header>
+
+    <div class="app-frame">
+      <div class="app-titlebar">
+        <span class="titlebar-box" aria-hidden="true"></span>
+        <span class="app-titlebar-text">LOOPPLAYER — C:\TOOLS\LOOPPLAYER</span>
+        <span class="titlebar-box" aria-hidden="true"></span>
+      </div>
+
+      <main class="app-shell app-main">
+        <header class="master-bar">
+          <div class="section-head">
+            <span>Master</span>
+            <span>BPM / transport</span>
+          </div>
+          <div class="master-bar-inner">
+            <div class="master-brand">
+              <p class="eyebrow text-uppercase mb-1">3030 Music</p>
+              <p class="master-title mb-0">Loop Lab</p>
+            </div>
+            <div class="master-controls">
+              <div class="master-control-group">
+                <label class="form-label fw-semibold mb-1 small" for="master-bpm">Master BPM</label>
+                <div class="input-group input-group-sm">
+                  <input
+                    id="master-bpm"
+                    class="form-control"
+                    type="number"
+                    min="60"
+                    max="180"
+                    step="1"
+                    value="120"
+                  >
+                  <span class="input-group-text">BPM</span>
+                </div>
+              </div>
+              <div class="form-check form-switch master-switch mb-0">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="metronome-enabled"
+                >
+                <label class="form-check-label fw-semibold small" for="metronome-enabled">Metronome</label>
+              </div>
+              <button
+                id="master-transport"
+                class="btn btn-primary btn-sm master-transport-button"
+                type="button"
+                aria-disabled="true"
+              >
+                Start
+              </button>
+              <button
+                id="export-wavs"
+                class="btn btn-outline-secondary btn-sm"
+                type="button"
+                disabled
+              >
+                Export WAVs
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <section class="slots-section">
+          <div class="section-head">
+            <span>Loop Slots</span>
+            <span>8 × WAV / local</span>
+          </div>
+          <div id="slot-grid" class="row g-3" aria-label="Audio loop slots"></div>
+        </section>
+      </main>
+
+      <footer class="app-statusbar">
+        <span>8 slots</span>
+        <span>WAV loops</span>
+        <span class="statusbar-hint">All audio stays on this computer</span>
+      </footer>
+    </div>
+
+    <noscript>
+      <p class="noscript">Loopplayer needs JavaScript and Web Audio enabled to run.</p>
+    </noscript>
+
+    <script type="module" src="./main.js"></script>
+    <script>
+      (() => {
+        const clock = document.getElementById("clock");
+        const pad = (value) => String(value).padStart(2, "0");
+
+        function tick() {
+          const now = new Date();
+          clock.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+          clock.setAttribute("datetime", now.toISOString());
+        }
+
+        tick();
+        window.setInterval(tick, 1000);
+      })();
+    </script>
+  </body>
+</html>

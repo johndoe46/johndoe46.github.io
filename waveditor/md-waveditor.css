@@ -1,0 +1,296 @@
+body {
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  padding-bottom: 4.75rem;
+  --editor-waveform-bg-top: rgba(255, 255, 255, 0.92);
+  --editor-waveform-bg-bottom: rgba(248, 249, 250, 0.96);
+  --editor-waveform-grid-line: rgba(13, 110, 253, 0.08);
+  --editor-stat-border: rgba(13, 110, 253, 0.12);
+  --editor-stat-bg: rgba(13, 110, 253, 0.03);
+  --editor-hint-bg: rgba(255, 255, 255, 0.96);
+  --editor-hint-shadow: rgba(33, 37, 41, 0.08);
+  --editor-muted-color: var(--bs-secondary-color);
+  --editor-hint-text: var(--bs-body-color);
+  --editor-canvas-empty: #6c757d;
+  --editor-canvas-lane: rgba(13, 110, 253, 0.35);
+  --editor-canvas-divider: rgba(108, 117, 125, 0.25);
+  --editor-canvas-label: rgba(13, 110, 253, 0.8);
+  --editor-canvas-waveform: #0d6efd;
+  --editor-canvas-selection-fill: rgba(255, 193, 7, 0.22);
+  --editor-canvas-selection-stroke: rgba(255, 193, 7, 0.95);
+  --editor-canvas-selection-handle: rgba(255, 193, 7, 0.98);
+  --editor-canvas-playhead: rgba(25, 135, 84, 0.98);
+  --editor-canvas-grid-stroke: rgba(108, 117, 125, 0.35);
+  --editor-canvas-marker-stroke: rgba(108, 117, 125, 0.95);
+  --editor-canvas-marker-handle: rgba(108, 117, 125, 0.98);
+  --editor-canvas-view-fill: rgba(13, 110, 253, 0.12);
+  --editor-canvas-view-stroke: rgba(13, 110, 253, 0.7);
+}
+
+body[data-bs-theme="dark"] {
+  --editor-waveform-bg-top: rgba(24, 28, 37, 0.96);
+  --editor-waveform-bg-bottom: rgba(13, 17, 23, 0.98);
+  --editor-waveform-grid-line: rgba(110, 168, 254, 0.12);
+  --editor-stat-border: rgba(110, 168, 254, 0.2);
+  --editor-stat-bg: rgba(110, 168, 254, 0.08);
+  --editor-hint-bg: rgba(24, 28, 37, 0.94);
+  --editor-hint-shadow: rgba(0, 0, 0, 0.24);
+  --editor-canvas-empty: #adb5bd;
+  --editor-canvas-lane: rgba(110, 168, 254, 0.38);
+  --editor-canvas-divider: rgba(173, 181, 189, 0.2);
+  --editor-canvas-label: rgba(110, 168, 254, 0.9);
+  --editor-canvas-waveform: #6ea8fe;
+  --editor-canvas-selection-fill: rgba(255, 214, 102, 0.22);
+  --editor-canvas-selection-stroke: rgba(255, 214, 102, 0.95);
+  --editor-canvas-selection-handle: rgba(255, 214, 102, 0.98);
+  --editor-canvas-playhead: rgba(117, 231, 159, 0.98);
+  --editor-canvas-grid-stroke: rgba(173, 181, 189, 0.28);
+  --editor-canvas-marker-stroke: rgba(173, 181, 189, 0.95);
+  --editor-canvas-marker-handle: rgba(173, 181, 189, 0.98);
+  --editor-canvas-view-fill: rgba(110, 168, 254, 0.16);
+  --editor-canvas-view-stroke: rgba(110, 168, 254, 0.82);
+}
+
+.audio-file-shell {
+  max-width: 1240px;
+}
+
+.audio-file-shell-fluid {
+  max-width: none;
+}
+
+body[data-md-wave-editor-host="open-file"] main.audio-file-shell {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 4.75rem);
+}
+
+md-waveditor {
+  display: block;
+}
+
+body[data-md-wave-editor-host="open-file"] md-waveditor {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+body[data-md-wave-editor-host="open-file"] md-waveditor > section.card {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+body[data-md-wave-editor-host="open-file"] md-waveditor > section.card > .card-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.audio-file-waveform-stage {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  border-radius: 0.375rem;
+  overflow: hidden;
+}
+
+body[data-md-wave-editor-host="open-file"] .audio-file-waveform-stage {
+  flex: 4 1 240px;
+  height: auto;
+  min-height: 240px;
+}
+
+.audio-file-overview-stage {
+  position: relative;
+  width: 100%;
+  height: 60px;
+  border-radius: 0.375rem;
+  overflow: hidden;
+}
+
+body[data-md-wave-editor-host="open-file"] .audio-file-overview-stage {
+  flex: 1 1 60px;
+  height: auto;
+  min-height: 60px;
+}
+
+.audio-file-waveform {
+  width: 100%;
+  height: 100%;
+  display: block;
+  position: absolute;
+  inset: 0;
+}
+
+.audio-file-waveform-base {
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, var(--editor-waveform-bg-top), var(--editor-waveform-bg-bottom)),
+    repeating-linear-gradient(
+      90deg,
+      var(--editor-waveform-grid-line) 0,
+      var(--editor-waveform-grid-line) 1px,
+      transparent 1px,
+      transparent 72px
+    );
+}
+
+.audio-file-overview-base {
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, var(--editor-waveform-bg-top), var(--editor-waveform-bg-bottom)),
+    repeating-linear-gradient(
+      90deg,
+      var(--editor-waveform-grid-line) 0,
+      var(--editor-waveform-grid-line) 1px,
+      transparent 1px,
+      transparent 96px
+    );
+}
+
+.audio-file-waveform-overlay {
+  cursor: crosshair;
+  background: transparent;
+}
+
+.audio-file-overview-overlay {
+  cursor: crosshair;
+  background: transparent;
+}
+
+.editor-toolbar,
+.editor-save-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.editor-document-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.editor-document-tab-group {
+  max-width: min(26rem, 100%);
+}
+
+.editor-document-tab {
+  max-width: min(22rem, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-document-close {
+  flex: 0 0 auto;
+}
+
+.editor-toolbar {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.editor-save-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.editor-stat {
+  border: 1px solid var(--editor-stat-border);
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--editor-stat-bg);
+}
+
+.editor-stat-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--editor-muted-color);
+  margin-bottom: 0.2rem;
+}
+
+.editor-stat-value {
+  margin: 0;
+  font-weight: 600;
+  font-family:
+    "SFMono-Regular",
+    "Menlo",
+    "Monaco",
+    "Consolas",
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-section-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--editor-muted-color);
+  margin-bottom: 0.5rem;
+}
+
+.editor-toolbar .btn,
+#chooseFolderButton,
+#saveButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.editor-toolbar .btn {
+  min-width: 2rem;
+  min-height: 2rem;
+  line-height: 1;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.editor-toolbar .btn .bi,
+#chooseFolderButton .bi,
+#saveButton .bi {
+  line-height: 1;
+}
+
+.ui-hint-target {
+  display: inline-flex;
+}
+
+.ui-hint-target > button:disabled {
+  pointer-events: none;
+}
+
+.ui-hint-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1040;
+  background: var(--editor-hint-bg);
+  border-top: 1px solid var(--editor-stat-border);
+  box-shadow: 0 -0.35rem 1rem var(--editor-hint-shadow);
+  backdrop-filter: blur(10px);
+}
+
+.ui-hint-footer-inner {
+  min-height: 3.5rem;
+}
+
+.ui-hint-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--editor-muted-color);
+}
+
+.ui-hint-text {
+  margin: 0;
+  color: var(--editor-hint-text);
+}

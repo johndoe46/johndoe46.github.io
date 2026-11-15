@@ -1,0 +1,11 @@
+Third-party assets vendored for the Waveditor page:
+
+Bootstrap v5.3.8
+https://github.com/twbs/bootstrap
+Copyright 2011-2025 The Bootstrap Authors
+Licensed under the MIT License.
+
+Bootstrap Icons v1.11.3
+https://github.com/twbs/icons
+Copyright 2019-2024 The Bootstrap Authors
+Licensed under the MIT License.

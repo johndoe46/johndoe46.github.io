@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Tapage — Web Kick Machine</title>
+  <meta name="description" content="Tapage, the fixed-point FM kick machine, running in the browser through WebAssembly.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page">
+    <main class="unit" id="unit" aria-label="Tapage web kick machine">
+      <div class="circuit" aria-hidden="true"></div>
+
+      <header class="masthead">
+        <div class="brand">
+          <h1>TAPAGE<span class="cursor" aria-hidden="true"></span></h1>
+          <p>brutal kick drum</p>
+        </div>
+
+        <div class="scope-shell">
+          <canvas id="scope" aria-label="Kick waveform preview"></canvas>
+          <div class="scope-hud" aria-hidden="true">
+            <span>SIGNAL</span>
+            <span id="scopeStatus">IDLE</span>
+          </div>
+        </div>
+
+        <div class="system">
+          <div class="status">
+            <span class="led" id="audioLed" aria-hidden="true"></span>
+            <span id="audioStatus" role="status" aria-live="polite">WASM OFFLINE</span>
+          </div>
+          <button class="power" id="power" type="button">START AUDIO</button>
+          <label class="monitor" for="monitor">
+            <span>MONITOR</span>
+            <input id="monitor" type="range" min="0" max="100" step="1" value="72" aria-label="Monitor volume">
+            <output id="monitorValue" for="monitor">072</output>
+          </label>
+        </div>
+      </header>
+
+      <section class="preset-bar" aria-label="Factory presets">
+        <span class="preset-title">PRESET</span>
+        <button class="step-button" id="presetPrev" type="button" aria-label="Previous preset" title="Previous preset">&lsaquo;</button>
+        <select id="presetSelect" aria-label="Factory preset">
+          <option value="0">INIT</option>
+        </select>
+        <button class="step-button" id="presetNext" type="button" aria-label="Next preset" title="Next preset">&rsaquo;</button>
+        <span class="preset-meta" id="presetMeta">LOADING STOCK BANK</span>
+      </section>
+
+      <section class="module">
+        <div class="module-head">
+          <span class="module-title">PERFORM</span>
+          <span class="module-rule" aria-hidden="true"></span>
+          <span class="module-note">6 VOICES / NOTE + VELOCITY + BPM</span>
+        </div>
+        <div class="note-panel">
+          <div class="performance-knob-host" id="noteKnobHost"></div>
+          <div class="performance-knob-host" id="velocityKnobHost"></div>
+          <div class="performance-tempo" id="performanceTempo"></div>
+          <div class="note-copy">
+            <span class="note-title">PERFORMANCE</span>
+            <span class="note-help">Preview loops the selected note and velocity; WAV export uses the same settings.</span>
+          </div>
+          <div class="performance-actions" id="performanceActions"></div>
+        </div>
+        <div class="button-row" id="perfButtons"></div>
+      </section>
+
+      <section class="module">
+        <div class="module-head">
+          <span class="module-title">VOICE</span>
+          <span class="module-rule" aria-hidden="true"></span>
+        </div>
+        <div class="knob-grid voice-knobs" id="voiceKnobs"></div>
+      </section>
+
+      <section class="module">
+        <div class="module-head">
+          <span class="module-title">LFO / MOD</span>
+          <span class="module-rule" aria-hidden="true"></span>
+        </div>
+        <div class="knob-grid mod-knobs" id="modKnobs"></div>
+        <div class="control-row" id="modControls"></div>
+      </section>
+
+      <footer class="footer">
+        <span><b>NOTE + VELOCITY + PREVIEW</b> · WAV EXPORT USES THE SAME SETTINGS</span>
+        <span id="footStatus" class="foot-right">CLICK POWER OR PRESS PREVIEW TO START</span>
+      </footer>
+    </main>
+  </div>
+
+  <noscript>
+    <p class="noscript">Tapage needs JavaScript and WebAssembly enabled to run.</p>
+  </noscript>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

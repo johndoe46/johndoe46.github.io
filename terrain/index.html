@@ -1,0 +1,2746 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#070706">
+  <title>Terrain — Infinite 1-bit Flight</title>
+  <meta name="description" content="An endless procedural mountain range, rendered in one bit and flown through in pseudo 3D, with a live generative soundtrack and an improvising solo synth. No map, no textures, no destination.">
+  <meta property="og:title" content="Terrain — Infinite 1-bit Flight">
+  <meta property="og:description" content="An endless pseudo 3D flight over procedural monochrome mountains, with a live generative sequencer and an improvising lead synth. One canvas, one bit, no assets.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23070706'/%3E%3Crect x='2' y='2' width='12' height='12' fill='%23ecebe0'/%3E%3Crect x='5' y='5' width='6' height='6' fill='%23070706'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #070706;
+      --screen: #050504;
+      --panel: #0b0b09;
+      --ink: #ecebe0;
+      --ink-soft: #b9b7a8;
+      --ink-dim: #85836f;
+      --ink-faint: #5e5c50;
+      --line: #ecebe0;
+      --line-mid: #5d5c50;
+      --line-soft: #2c2c26;
+      --mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --frame-max: 1080px;
+      --pad: clamp(14px, 3vw, 28px);
+      --panel-pad: clamp(14px, 3vw, 28px);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      border-radius: 0 !important;
+    }
+
+    html {
+      min-height: 100%;
+      background: var(--bg);
+      color-scheme: dark;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      overflow-x: hidden;
+      color: var(--ink);
+      font-family: var(--mono);
+      background:
+        radial-gradient(ellipse 120% 70% at 50% -10%, rgba(236, 235, 224, 0.055), transparent 58%),
+        var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background-image: radial-gradient(rgba(236, 235, 224, 0.07) 1px, transparent 1px);
+      background-size: 6px 6px;
+      -webkit-mask-image: radial-gradient(ellipse at 50% 42%, transparent 0 32%, #000 88%);
+      mask-image: radial-gradient(ellipse at 50% 42%, transparent 0 32%, #000 88%);
+      opacity: 0.55;
+    }
+
+    ::selection {
+      background: var(--ink);
+      color: var(--bg);
+    }
+
+    .crt {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, 0.28) 0,
+          rgba(0, 0, 0, 0.28) 1px,
+          transparent 1px,
+          transparent 3px
+        ),
+        radial-gradient(ellipse at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.4) 100%);
+      opacity: 0.4;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* ── Menu bar ─────────────────────────────────────────── */
+
+    .menubar {
+      position: relative;
+      z-index: 3;
+      border-bottom: 1px solid var(--line-mid);
+      background: rgba(7, 7, 6, 0.94);
+    }
+
+    .menubar-inner {
+      width: min(var(--frame-max), calc(100% - 2 * var(--pad)));
+      height: 30px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      color: var(--ink-soft);
+      font-size: 10px;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .menubar-brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--ink);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .menubar-brand:hover,
+    .menubar-brand:focus-visible {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .brand-mark {
+      width: 9px;
+      height: 9px;
+      flex: none;
+      background: var(--ink);
+      box-shadow: inset 0 0 0 2px var(--bg);
+    }
+
+    .menubar-menu {
+      display: flex;
+      align-items: center;
+      gap: 1px;
+      margin-left: 6px;
+    }
+
+    .menubar-menu span {
+      padding: 3px 9px;
+    }
+
+    .menubar-menu .is-active {
+      background: var(--ink);
+      color: var(--bg);
+      font-weight: 700;
+    }
+
+    .menubar-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .led-indicator {
+      width: 5px;
+      height: 5px;
+      background: var(--ink);
+      box-shadow: 0 0 7px rgba(236, 235, 224, 0.5);
+      animation: blink-soft 2.6s steps(1, end) infinite;
+    }
+
+    .menubar-link {
+      padding: 2px 6px;
+      border: 1px solid var(--line-soft);
+      color: var(--ink);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-decoration: none;
+    }
+
+    .menubar-link:hover,
+    .menubar-link:focus-visible {
+      background: var(--ink);
+      color: var(--bg);
+      border-color: var(--ink);
+      text-decoration: none;
+    }
+
+    /* ── Window frame ─────────────────────────────────────── */
+
+    .app-frame {
+      width: min(var(--frame-max), calc(100% - 2 * var(--pad)));
+      margin: 24px auto;
+      border: 2px solid var(--line);
+      background: var(--panel);
+      box-shadow:
+        10px 10px 0 var(--line-soft),
+        0 30px 90px rgba(0, 0, 0, 0.62);
+    }
+
+    .app-titlebar {
+      height: 30px;
+      padding: 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--ink);
+      color: var(--bg);
+      border-bottom: 2px solid var(--bg);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .titlebar-box {
+      width: 9px;
+      height: 9px;
+      flex: none;
+      border: 2px solid var(--bg);
+    }
+
+    .app-titlebar-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .unit {
+      padding: clamp(18px, 3vw, 30px) var(--panel-pad) 0;
+    }
+
+    /* ── Masthead ─────────────────────────────────────────── */
+
+    .masthead {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: clamp(20px, 4vw, 48px);
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .brand {
+      min-width: 0;
+    }
+
+    .brand h1 {
+      margin: 0;
+      color: var(--ink);
+      font-size: clamp(38px, 7vw, 68px);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      line-height: 0.92;
+      text-shadow: 0 0 16px rgba(236, 235, 224, 0.16);
+    }
+
+    .brand .cursor {
+      display: inline-block;
+      width: 0.42em;
+      height: 0.74em;
+      margin-left: 0.08em;
+      vertical-align: 0.04em;
+      background: var(--ink);
+      animation: blink 1.1s steps(1, end) infinite;
+    }
+
+    .brand p {
+      margin: 10px 0 0;
+      color: var(--ink-dim);
+      font-size: 9px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+    }
+
+    .lede {
+      max-width: 44ch;
+      margin: 0 0 2px;
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .lede b {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--ink-dim);
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    /* ── Viewport ─────────────────────────────────────────── */
+
+    .viewport {
+      margin-top: 20px;
+      border: 1px solid var(--line-mid);
+      background: var(--screen);
+      box-shadow: inset 0 0 34px rgba(0, 0, 0, 0.85);
+    }
+
+    .screen-bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 26px;
+      padding: 0 10px;
+      border-bottom: 1px dashed var(--line-soft);
+      color: var(--ink-dim);
+      font-size: 8px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .screen-bar-state {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-left: auto;
+      color: var(--ink);
+    }
+
+    .screen-bar-state::before {
+      content: "";
+      width: 4px;
+      height: 4px;
+      background: currentColor;
+      animation: blink 1.4s steps(1, end) infinite;
+    }
+
+    .screen-bar-state.is-paused::before {
+      animation: none;
+      opacity: 0.25;
+    }
+
+    .screen {
+      position: relative;
+      background: var(--screen);
+      line-height: 0;
+    }
+
+    #terrain {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 10;
+      background: var(--screen);
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .mark {
+      position: absolute;
+      width: 13px;
+      height: 13px;
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
+    .mark-tl {
+      top: 8px;
+      left: 8px;
+      border-top: 1px solid var(--ink);
+      border-left: 1px solid var(--ink);
+    }
+
+    .mark-tr {
+      top: 8px;
+      right: 8px;
+      border-top: 1px solid var(--ink);
+      border-right: 1px solid var(--ink);
+    }
+
+    .mark-bl {
+      bottom: 8px;
+      left: 8px;
+      border-bottom: 1px solid var(--ink);
+      border-left: 1px solid var(--ink);
+    }
+
+    .mark-br {
+      bottom: 8px;
+      right: 8px;
+      border-bottom: 1px solid var(--ink);
+      border-right: 1px solid var(--ink);
+    }
+
+    .screen-foot {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 22px;
+      padding: 8px 10px 7px;
+      border-top: 1px dashed var(--line-soft);
+      color: var(--ink-dim);
+      font-size: 8px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .screen-foot span {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .screen-foot b {
+      color: var(--ink-faint);
+      font-weight: 700;
+    }
+
+    .screen-foot output {
+      color: var(--ink);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .screen-foot .foot-auto {
+      margin-left: auto;
+      color: var(--ink-faint);
+      letter-spacing: 0.13em;
+    }
+
+    /* ── Console / controls ───────────────────────────────── */
+
+    .deck {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px 24px;
+      padding: 16px 0 18px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .ctl {
+      min-width: 98px;
+      padding: 9px 13px 8px;
+      border: 1px solid var(--line-soft);
+      background: transparent;
+      color: var(--ink-soft);
+      font-family: inherit;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .ctl:hover {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: var(--bg);
+    }
+
+    .ctl:focus-visible {
+      outline: 2px dashed var(--ink);
+      outline-offset: 3px;
+    }
+
+    .ctl.is-primary {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: var(--bg);
+    }
+
+    .ctl.is-primary:hover {
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .ctl.is-on {
+      background: var(--ink);
+      color: var(--bg);
+      border-color: var(--ink);
+    }
+
+    .ctl.is-on:hover {
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .ctl:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+
+    .hints {
+      margin: 0;
+      color: var(--ink-faint);
+      font-size: 8px;
+      letter-spacing: 0.13em;
+      line-height: 1.9;
+      text-transform: uppercase;
+      text-align: right;
+    }
+
+    .hints span {
+      display: inline-block;
+      margin-right: 14px;
+      white-space: nowrap;
+    }
+
+    .hints span:last-child {
+      margin-right: 0;
+    }
+
+    .hints kbd {
+      padding: 1px 4px;
+      border: 1px solid var(--line-soft);
+      color: var(--ink-soft);
+      font-family: inherit;
+      font-size: 8px;
+    }
+
+    .hints kbd + kbd {
+      margin-left: 2px;
+    }
+
+    /* ── Soundtrack ───────────────────────────────────────── */
+
+    .sound-deck {
+      margin: 0 0 18px;
+      border: 1px solid var(--line-soft);
+      background: var(--screen);
+    }
+
+    .sound-head {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-height: 26px;
+      padding: 0 10px;
+      border-bottom: 1px dashed var(--line-soft);
+      color: var(--ink-dim);
+      font-size: 8px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .sound-title {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+    }
+
+    .sound-lead {
+      color: var(--ink-faint);
+      font-size: 8px;
+      letter-spacing: 0.16em;
+      white-space: nowrap;
+    }
+
+    .sound-lead::before {
+      content: "Lead / ";
+    }
+
+    .sound-lead.is-solo {
+      color: var(--ink);
+    }
+
+    .sound-state {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-left: auto;
+      color: var(--ink-dim);
+    }
+
+    .sound-state::before {
+      content: "";
+      width: 4px;
+      height: 4px;
+      background: currentColor;
+      opacity: 0.25;
+    }
+
+    .sound-state.is-live {
+      color: var(--ink);
+    }
+
+    .sound-state.is-live::before {
+      opacity: 1;
+      animation: blink 1.25s steps(1, end) infinite;
+    }
+
+    .sound-body {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 11px 18px;
+      padding: 11px 10px;
+    }
+
+    .sound-power {
+      min-width: 118px;
+    }
+
+    .volume {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink-dim);
+      font-size: 8px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .volume output {
+      min-width: 2.5ch;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .volume input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 104px;
+      height: 4px;
+      margin: 0;
+      padding: 0;
+      border: 1px solid var(--line-soft);
+      background: linear-gradient(90deg, var(--ink-dim), var(--line-soft));
+      cursor: pointer;
+    }
+
+    .volume input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border: 1px solid var(--bg);
+      border-radius: 0;
+      background: var(--ink);
+    }
+
+    .volume input[type="range"]::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      border: 1px solid var(--bg);
+      border-radius: 0;
+      background: var(--ink);
+    }
+
+    .volume input[type="range"]:focus-visible {
+      outline: 2px dashed var(--ink);
+      outline-offset: 3px;
+    }
+
+    .sound-view {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+
+    #audioScope {
+      display: block;
+      width: 180px;
+      height: 36px;
+      border: 1px solid var(--line-soft);
+      background: var(--screen);
+      image-rendering: pixelated;
+    }
+
+    .sound-meta {
+      color: var(--ink-faint);
+      font-size: 7.5px;
+      letter-spacing: 0.12em;
+      white-space: nowrap;
+    }
+
+    .footer {
+      margin: 0 calc(-1 * var(--panel-pad));
+      padding: 9px var(--panel-pad);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 4px 18px;
+      border-top: 2px solid var(--bg);
+      background: var(--ink);
+      color: var(--bg);
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      line-height: 1.5;
+      text-transform: uppercase;
+    }
+
+    .noscript {
+      max-width: var(--frame-max);
+      margin: 24px auto;
+      padding: 12px 16px;
+      border: 2px solid var(--ink);
+      background: var(--ink);
+      color: var(--bg);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    a:focus-visible,
+    button:focus-visible {
+      outline: 2px dashed var(--line);
+      outline-offset: 2px;
+    }
+
+    /* ── Animation ────────────────────────────────────────── */
+
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    @keyframes blink-soft {
+      0%, 78% { opacity: 1; }
+      79%, 100% { opacity: 0.25; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+      }
+
+      .brand .cursor {
+        opacity: 1;
+      }
+    }
+
+    /* ── Responsive ───────────────────────────────────────── */
+
+    @media (max-width: 820px) {
+      .masthead {
+        display: block;
+      }
+
+      .lede {
+        max-width: 60ch;
+        margin-top: 16px;
+      }
+
+      .hints {
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .app-frame {
+        margin: 14px auto;
+        box-shadow: 6px 6px 0 var(--line-soft);
+      }
+
+      .menubar-menu {
+        display: none;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .menubar-right .led-indicator {
+        display: none;
+      }
+
+      .screen-bar {
+        gap: 10px;
+        font-size: 7px;
+      }
+
+      .screen-bar .bar-extra {
+        display: none;
+      }
+
+      .sound-lead {
+        display: none;
+      }
+
+      .screen-foot {
+        gap: 5px 14px;
+        font-size: 7px;
+      }
+
+      .screen-foot output {
+        font-size: 9px;
+      }
+
+      .screen-foot .foot-auto {
+        display: none;
+      }
+
+      .controls {
+        width: 100%;
+      }
+
+      .ctl {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .sound-power {
+        flex: 1 1 120px;
+      }
+
+      .sound-body {
+        gap: 10px 12px;
+      }
+
+      .volume {
+        flex: 1;
+      }
+
+      .volume input[type="range"] {
+        flex: 1;
+        width: auto;
+        min-width: 64px;
+      }
+
+      .sound-view {
+        width: 100%;
+        margin-left: 0;
+      }
+
+      #audioScope {
+        flex: 1;
+        width: auto;
+        min-width: 0;
+      }
+
+      .footer {
+        font-size: 7px;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .menubar-inner time {
+        display: none;
+      }
+
+      .app-titlebar {
+        font-size: 9px;
+        letter-spacing: 0.1em;
+      }
+
+      .brand h1 {
+        font-size: 34px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="crt" aria-hidden="true"></div>
+
+  <header class="menubar">
+    <div class="menubar-inner">
+      <a class="menubar-brand" href="../"><span class="brand-mark" aria-hidden="true"></span>JOHNDOE46.GITHUB.IO</a>
+      <span class="menubar-menu" aria-hidden="true">
+        <span class="is-active">Terrain</span>
+        <span>Flight</span>
+        <span>1-bit</span>
+      </span>
+      <span class="menubar-right">
+        <span class="led-indicator" aria-hidden="true"></span>
+        <time id="clock">--:--:--</time>
+        <a class="menubar-link" href="../">&larr; Index</a>
+      </span>
+    </div>
+  </header>
+
+  <div class="app-frame">
+    <div class="app-titlebar">
+      <span class="titlebar-box" aria-hidden="true"></span>
+      <span class="app-titlebar-text">TERRAIN — C:\GFX\TERRAIN</span>
+      <span class="titlebar-box" aria-hidden="true"></span>
+    </div>
+
+    <main class="unit">
+      <header class="masthead">
+        <div class="brand">
+          <h1>TERRAIN<span class="cursor" aria-hidden="true"></span></h1>
+          <p>Infinite flight / pseudo 3D / 1-bit</p>
+        </div>
+        <p class="lede">
+          <b>No map. No destination.</b>
+          A mountain range generated as it arrives, sampled one ray at a time and dithered down to a single bit. Underneath, a generative sequencer keeps time while a solo synth improvises over the changes.
+        </p>
+      </header>
+
+      <section class="viewport" aria-label="Terrain flight viewport">
+        <div class="screen-bar">
+          <span>VIEW 01 / CHASE</span>
+          <span class="bar-extra">RIDGED FBM &times; 5</span>
+          <span class="screen-bar-state" id="flightState" role="status" aria-live="polite">LIVE</span>
+        </div>
+
+        <div class="screen">
+          <canvas id="terrain" width="320" height="200" role="img" aria-label="Animated monochrome flight over endless procedural mountains"></canvas>
+          <span class="mark mark-tl" aria-hidden="true"></span>
+          <span class="mark mark-tr" aria-hidden="true"></span>
+          <span class="mark mark-bl" aria-hidden="true"></span>
+          <span class="mark mark-br" aria-hidden="true"></span>
+        </div>
+
+        <div class="screen-foot" aria-hidden="true">
+          <span><b>SPD</b><output id="readSpeed">036</output></span>
+          <span><b>ALT</b><output id="readAlt">048</output></span>
+          <span><b>DST</b><output id="readDist">00000</output></span>
+          <span><b>HDG</b><output id="readHeading">000</output></span>
+          <span class="foot-auto">Auto terrain follow</span>
+        </div>
+      </section>
+
+      <section class="deck" aria-label="Flight controls">
+        <div class="controls">
+          <button class="ctl is-primary" id="pauseButton" type="button">Pause</button>
+          <button class="ctl" id="boostButton" type="button" aria-pressed="false">Boost</button>
+          <button class="ctl" id="seedButton" type="button">Reseed</button>
+        </div>
+        <p class="hints">
+          <span><kbd>&larr;</kbd><kbd>&rarr;</kbd> steer</span>
+          <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> altitude</span>
+          <span><kbd>space</kbd> boost</span>
+          <span><kbd>P</kbd> pause</span>
+          <span><kbd>R</kbd> reseed</span>
+          <span><kbd>M</kbd> audio</span>
+        </p>
+      </section>
+
+      <section class="sound-deck" aria-labelledby="sound-title">
+        <div class="sound-head">
+          <h2 class="sound-title" id="sound-title">Audio / generative sequencer</h2>
+          <span class="sound-lead" id="audioLead" aria-hidden="true">Rest</span>
+          <span class="sound-state" id="audioState" role="status">Silent</span>
+        </div>
+        <div class="sound-body">
+          <button class="ctl is-primary sound-power" id="audioButton" type="button" aria-pressed="false">Start audio</button>
+          <label class="volume" for="volume">
+            <span>Vol</span>
+            <input id="volume" type="range" min="0" max="100" step="1" value="72" aria-label="Soundtrack volume">
+            <output id="volumeValue" for="volume">072</output>
+          </label>
+          <div class="sound-view">
+            <canvas id="audioScope" width="180" height="36" aria-hidden="true"></canvas>
+            <span class="sound-meta" id="audioMeta">D MINOR / 104 BPM</span>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span>Seed <span id="seedLabel">001</span> · 320 &times; 200 · 1-bit raster</span>
+        <span>Generated locally / no assets / no end</span>
+      </footer>
+    </main>
+  </div>
+
+  <noscript>
+    <p class="noscript">Terrain needs JavaScript and canvas enabled to fly.</p>
+  </noscript>
+
+  <script>
+    (() => {
+      const clock = document.getElementById("clock");
+      const pad = (value) => String(value).padStart(2, "0");
+
+      function tick() {
+        const now = new Date();
+        clock.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+        clock.setAttribute("datetime", now.toISOString());
+      }
+
+      tick();
+      window.setInterval(tick, 1000);
+
+      const canvas = document.getElementById("terrain");
+      if (!canvas || !canvas.getContext) return;
+
+      const ctx = canvas.getContext("2d", { alpha: false });
+      const W = canvas.width;
+      const H = canvas.height;
+      const FOCAL = 310;
+      const HORIZON = 80;
+      const D_MAX = 380;
+      const TARGET_FPS = 30;
+
+      const image = ctx.createImageData(W, H);
+      const data32 = new Uint32Array(image.data.buffer);
+      const luma = new Uint8Array(W * H);
+
+      function mulberry32(seed) {
+        let a = seed | 0;
+        return function random() {
+          a = (a + 0x6d2b79f5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      const bayer8 = [
+        0, 32, 8, 40, 2, 34, 10, 42,
+        48, 16, 56, 24, 50, 18, 58, 26,
+        12, 44, 4, 36, 14, 46, 6, 38,
+        60, 28, 52, 20, 62, 30, 54, 22,
+        3, 35, 11, 43, 1, 33, 9, 41,
+        51, 19, 59, 27, 49, 17, 57, 25,
+        15, 47, 7, 39, 13, 45, 5, 37,
+        63, 31, 55, 23, 61, 29, 53, 21,
+      ];
+      const DITHER = new Uint8Array(W * H);
+      const ditherRandom = mulberry32(0x1badb002);
+      for (let y = 0; y < H; y += 1) {
+        for (let x = 0; x < W; x += 1) {
+          const base = ((bayer8[(y & 7) * 8 + (x & 7)] + 0.5) / 64) * 255;
+          const jitter = (ditherRandom() - 0.5) * 12;
+          DITHER[y * W + x] = Math.max(0, Math.min(254, Math.round(base + jitter)));
+        }
+      }
+
+      const endianProbe = new Uint32Array(1);
+      new Uint8Array(endianProbe.buffer)[0] = 1;
+      const LITTLE_ENDIAN = endianProbe[0] === 1;
+      const INK = LITTLE_ENDIAN ? 0xffe0ebec : 0xecebe0ff;
+      const SCREEN = LITTLE_ENDIAN ? 0xff040505 : 0x050504ff;
+
+      const STEPS = [];
+      for (let d = 6; d < D_MAX; d += 0.8 + d * 0.016) STEPS.push(d);
+      const STEP_COUNT = STEPS.length;
+      const previousColumn = new Float32Array(STEP_COUNT);
+
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+      const state = {
+        seed: 1,
+        camX: 0,
+        camZ: 0,
+        camY: 70,
+        yaw: 0,
+        roll: 0,
+        clearance: 13,
+        distance: 0,
+        time: 0,
+        running: !reduceMotion.matches,
+        boost: false,
+        keyBoost: false,
+        lastFrame: 0,
+        lastRender: 0,
+        stars: [],
+        sunAzimuth: 0.3,
+      };
+
+      let terrainSeed = 0;
+
+      function hash2(x, y) {
+        let h = Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(y | 0, 0x165667b1) ^ terrainSeed;
+        h = Math.imul(h ^ (h >>> 15), 0x2545f491);
+        h ^= h >>> 13;
+        return (h >>> 0) / 4294967296;
+      }
+
+      function noise2(x, z) {
+        const ix = Math.floor(x);
+        const iz = Math.floor(z);
+        const fx = x - ix;
+        const fz = z - iz;
+        const ux = fx * fx * (3 - 2 * fx);
+        const uz = fz * fz * (3 - 2 * fz);
+        const a = hash2(ix, iz);
+        const b = hash2(ix + 1, iz);
+        const c = hash2(ix, iz + 1);
+        const d = hash2(ix + 1, iz + 1);
+        const ab = a + (b - a) * ux;
+        const cd = c + (d - c) * ux;
+        return ab + (cd - ab) * uz;
+      }
+
+      function terrainHeight(x, z) {
+        let h = 0;
+        let amp = 1;
+        let freq = 0.0034;
+        let sum = 0;
+
+        for (let o = 0; o < 5; o += 1) {
+          let n = noise2(x * freq + o * 17.3, z * freq - o * 9.1);
+          n = 1 - Math.abs(n * 2 - 1);
+          h += n * n * amp;
+          sum += amp;
+          amp *= 0.47;
+          freq *= 2.05;
+        }
+
+        return (h / sum) * 104 - 12;
+      }
+
+      function softClamp(value) {
+        return value / (1 + Math.abs(value));
+      }
+
+      function horizonAt(x, bob, roll) {
+        return HORIZON + bob + roll * (x - W / 2);
+      }
+
+      function makeStars() {
+        const random = mulberry32(state.seed * 7919 + 17);
+        const stars = [];
+
+        for (let i = 0; i < 90; i += 1) {
+          stars.push({
+            azimuth: random() * Math.PI * 2 - Math.PI,
+            elevation: 0.02 + Math.pow(random(), 1.4) * 0.24,
+            brightness: 0.4 + random() * 0.6,
+            phase: random() * Math.PI * 2,
+            speed: 0.4 + random() * 1.6,
+            big: random() < 0.12,
+          });
+        }
+
+        return stars;
+      }
+
+      function resetSeed(seed) {
+        state.seed = seed;
+        terrainSeed = Math.imul(seed, 0x9e3779b1) ^ 0x7f4a7c15;
+        state.stars = makeStars();
+        state.sunAzimuth = (mulberry32(seed * 31 + 5)() * 0.62) - 0.31;
+        state.camX = 0;
+        state.camZ = 0;
+        state.distance = 0;
+        state.yaw = 0;
+        state.roll = 0;
+        previousColumn.fill(0);
+
+        let ahead = 0;
+        for (let i = 0; i < 7; i += 1) {
+          const dz = 20 + i * 18;
+          ahead = Math.max(ahead, terrainHeight(0, dz));
+        }
+        state.camY = Math.max(ahead + state.clearance, 50);
+        state.keyBoost = false;
+        state.boost = false;
+
+        document.getElementById("seedLabel").textContent = String(seed).padStart(3, "0");
+      }
+
+      function update(dt) {
+        const left = keys.has("ArrowLeft");
+        const right = keys.has("ArrowRight");
+        const up = keys.has("ArrowUp");
+        const down = keys.has("ArrowDown");
+        const turn = (right ? 1 : 0) - (left ? 1 : 0);
+
+        if (turn !== 0) {
+          state.yaw += turn * 0.8 * dt;
+          if (state.yaw > Math.PI) state.yaw -= Math.PI * 2;
+          if (state.yaw < -Math.PI) state.yaw += Math.PI * 2;
+        }
+
+        if (up || down) {
+          state.clearance = Math.max(5, Math.min(40, state.clearance + (up ? 1 : -1) * 26 * dt));
+        }
+
+        const boosting = state.boost || state.keyBoost;
+        const speed = boosting ? 94 : 42;
+        const sinYaw = Math.sin(state.yaw);
+        const cosYaw = Math.cos(state.yaw);
+
+        state.camX += sinYaw * speed * dt;
+        state.camZ += cosYaw * speed * dt;
+        state.distance += speed * dt;
+
+        let ahead = 0;
+        for (let i = 0; i < 7; i += 1) {
+          const dz = 20 + i * 18;
+          const h = terrainHeight(state.camX + sinYaw * dz, state.camZ + cosYaw * dz);
+          if (h > ahead) ahead = h;
+        }
+
+        const targetY = Math.max(ahead + state.clearance, 45);
+        const lift = targetY > state.camY ? 2.2 : 1.1;
+        state.camY += (targetY - state.camY) * Math.min(1, dt * lift);
+
+        const targetRoll = turn * -0.022;
+        state.roll += (targetRoll - state.roll) * Math.min(1, dt * 3.5);
+
+        state.time += dt;
+      }
+
+      function setPixel(x, y, value) {
+        if (x < 0 || x >= W || y < 0 || y >= H) return;
+        const index = y * W + x;
+        if (value > luma[index]) luma[index] = value;
+      }
+
+      function contourLine(x0, y0, x1, y1) {
+        let dx = Math.abs(x1 - x0);
+        let sx = x0 < x1 ? 1 : -1;
+        let dy = -Math.abs(y1 - y0);
+        let sy = y0 < y1 ? 1 : -1;
+        let err = dx + dy;
+        let x = x0;
+        let y = y0;
+
+        while (true) {
+          if (x >= 0 && x < W && y >= 0 && y < H) {
+            const index = y * W + x;
+            luma[index] = luma[index] > 127 ? 0 : 255;
+          }
+          if (x === x1 && y === y1) break;
+          const e2 = 2 * err;
+          if (e2 >= dy) {
+            err += dy;
+            x += sx;
+          }
+          if (e2 <= dx) {
+            err += dx;
+            y += sy;
+          }
+        }
+      }
+
+      function silhouetteLine(x0, y0, x1, y1) {
+        let dx = Math.abs(x1 - x0);
+        let sx = x0 < x1 ? 1 : -1;
+        let dy = -Math.abs(y1 - y0);
+        let sy = y0 < y1 ? 1 : -1;
+        let err = dx + dy;
+        let x = x0;
+        let y = y0;
+
+        while (true) {
+          if (x >= 0 && x < W && y >= 0 && y < H) luma[y * W + x] = 255;
+          if (x === x1 && y === y1) break;
+          const e2 = 2 * err;
+          if (e2 >= dy) {
+            err += dy;
+            x += sx;
+          }
+          if (e2 <= dx) {
+            err += dx;
+            y += sy;
+          }
+        }
+      }
+
+      function drawSky(bob, roll) {
+        luma.fill(0);
+
+        for (let x = 0; x < W; x += 1) {
+          if (x % 8 > 1) continue;
+          const y = Math.round(horizonAt(x, bob, roll));
+          if (y >= 0 && y < H) luma[y * W + x] = 190;
+        }
+      }
+
+      function drawStars(bob, roll) {
+        const time = state.time;
+
+        for (const star of state.stars) {
+          let rel = star.azimuth - state.yaw;
+          if (rel > Math.PI) rel -= Math.PI * 2;
+          if (rel < -Math.PI) rel += Math.PI * 2;
+          if (Math.abs(rel) > 1.05) continue;
+
+          const sx = Math.round(W / 2 + Math.tan(rel) * FOCAL);
+          if (sx < 0 || sx >= W) continue;
+
+          const sy = Math.round(horizonAt(sx, bob, roll) - star.elevation * FOCAL);
+          if (sy < 0 || sy >= H) continue;
+
+          const flicker = 0.82 + 0.18 * Math.sin(time * star.speed + star.phase);
+          const value = Math.round(200 * star.brightness * flicker);
+          if (value < 60) continue;
+
+          setPixel(sx, sy, value);
+          if (star.big) setPixel(sx + 1, sy, Math.round(value * 0.45));
+        }
+      }
+
+      function drawSun(bob, roll) {
+        let rel = state.sunAzimuth - state.yaw;
+        if (rel > Math.PI) rel -= Math.PI * 2;
+        if (rel < -Math.PI) rel += Math.PI * 2;
+        if (Math.abs(rel) > 1.05) return;
+
+        const cx = Math.round(W / 2 + Math.tan(rel) * FOCAL);
+        const cy = Math.round(horizonAt(cx, bob, roll) - 22);
+        const radius = 24;
+
+        if (cx + radius < 0 || cx - radius >= W) return;
+
+        for (let y = -radius - 6; y <= radius + 6; y += 1) {
+          for (let x = -radius - 6; x <= radius + 6; x += 1) {
+            const d2 = x * x + y * y;
+            if (d2 > (radius + 6) * (radius + 6)) continue;
+
+            const sx = cx + x;
+            const sy = cy + y;
+            if (sx < 0 || sx >= W || sy < 0 || sy >= H) continue;
+
+            if (d2 <= radius * radius) {
+              const row = y + radius;
+              const inCut = row > 8 && (row % 6 === 4 || row % 6 === 5);
+              if (inCut) continue;
+
+              let value = 255;
+              if (d2 > (radius - 2) * (radius - 2)) {
+                value = 172 + Math.round(22 * Math.sin(x * 0.9 + y * 1.3));
+              }
+              setPixel(sx, sy, value);
+            } else {
+              const ringD = Math.sqrt(d2) - radius;
+              const halo = Math.max(0, 1 - ringD / 4);
+              if (halo > 0.5 && (sx + sy) % 5 === 0) {
+                setPixel(sx, sy, Math.round(60 + 40 * halo));
+              }
+            }
+          }
+        }
+      }
+
+      function drawTerrain(bob, roll) {
+        const camX = state.camX;
+        const camZ = state.camZ;
+        const camY = state.camY;
+        const rollStep = roll;
+        const boost = state.boost || state.keyBoost;
+        const bandOffset = 8;
+        let previousContours = new Int16Array(32).fill(-1);
+        let currentContours = new Int16Array(32).fill(-1);
+        let previousSkyline = -1;
+
+        for (let x = 0; x < W; x += 1) {
+          const rayOffset = Math.atan2(x - W / 2, FOCAL);
+          const angle = state.yaw + rayOffset;
+          const dirX = Math.sin(angle);
+          const dirZ = Math.cos(angle);
+          const hz = HORIZON + bob + rollStep * (x - W / 2);
+
+          let ybottom = H;
+          let previousHeight = 0;
+          let previousDistance = 0;
+          let previousSy = 0;
+          let hasPrevious = false;
+          let previousStripValue = 0;
+          let hasStrip = false;
+          let previousBand = null;
+          let skyline = -1;
+
+          currentContours.fill(-1);
+
+          for (let i = 0; i < STEP_COUNT; i += 1) {
+            const distance = STEPS[i];
+            const wx = camX + dirX * distance;
+            const wz = camZ + dirZ * distance;
+            const height = terrainHeight(wx, wz);
+
+            const lateralSpread = Math.max(0.2, distance / FOCAL);
+            const lateralSlope = x === 0 ? 0 : (height - previousColumn[i]) / lateralSpread;
+            const forwardSlope = hasPrevious
+              ? (height - previousHeight) / Math.max(0.2, distance - previousDistance)
+              : 0;
+            const band = Math.floor(height * 0.16);
+            const sy = hz + (camY - height) * FOCAL / distance;
+            const crossed = previousBand !== null && band !== previousBand;
+            let crossingY = 0;
+
+            if (crossed) {
+              const boundary = Math.max(band, previousBand) / 0.16;
+              const span = height - previousHeight;
+              if (span !== 0) {
+                const t = (boundary - previousHeight) / span;
+                crossingY = previousSy + (sy - previousSy) * t;
+              }
+            }
+
+            previousColumn[i] = height;
+            previousHeight = height;
+            previousDistance = distance;
+            previousSy = sy;
+            previousBand = band;
+            hasPrevious = true;
+
+            if (sy >= ybottom) continue;
+
+            const top = Math.max(0, Math.ceil(sy));
+            const bottom = Math.min(H, ybottom);
+
+            if (bottom > top) {
+              const gx = softClamp(lateralSlope * 0.7);
+              const gz = softClamp(forwardSlope * 0.45);
+              const normal = 1 / Math.sqrt(gx * gx + gz * gz + 1);
+              let lambert = (0.56 * gx + 0.32 * gz + 0.74) * normal;
+              lambert = Math.max(0, Math.min(1, lambert));
+
+              const fog = 1 - Math.min(1, Math.max(0, (distance - 70) / 310));
+
+              const contrast = Math.max(0, Math.min(1, (lambert - 0.56) / 0.14));
+              const lit = contrast * contrast * (3 - 2 * contrast);
+              let shade;
+
+              if (lit > 0.62) {
+                shade = 0.9;
+              } else if (lit < 0.38) {
+                shade = 0.06;
+              } else {
+                shade = 0.5;
+              }
+
+              shade *= 0.9 + 0.1 * fog;
+
+              const snow = Math.max(0, Math.min(1, (height - 46) / 26)) * lit * fog;
+              if (snow > 0.3) shade = 0.96;
+
+              shade += (hash2(x * 3, Math.round(distance * 2)) - 0.5) * 0.02;
+
+              let value = Math.round(Math.max(0, Math.min(1, shade)) * 255);
+              if (boost) value = Math.min(255, value + 10);
+
+              const rows = bottom - top;
+              for (let y = top; y < bottom; y += 1) {
+                const blend = rows > 1 ? (y - top + 1) / rows : 0;
+                const mixed = hasStrip
+                  ? Math.round(value + (previousStripValue - value) * blend)
+                  : value;
+                luma[y * W + x] = mixed;
+              }
+
+              if (crossed) {
+                const contourIndex = band + bandOffset;
+                const contourY = Math.max(0, Math.min(H - 1, Math.round(crossingY)));
+                if (contourIndex >= 0 && contourIndex < currentContours.length && currentContours[contourIndex] < 0) {
+                  currentContours[contourIndex] = contourY;
+                }
+                luma[contourY * W + x] = value > 127 ? 0 : 255;
+              }
+
+              previousStripValue = value;
+              hasStrip = true;
+              skyline = top;
+            }
+
+            ybottom = top;
+            if (ybottom <= 0) break;
+          }
+
+          if (x > 0) {
+            for (let b = 0; b < currentContours.length; b += 1) {
+              const y0 = previousContours[b];
+              const y1 = currentContours[b];
+              if (y0 >= 0 && y1 >= 0 && Math.abs(y1 - y0) <= 14) {
+                contourLine(x - 1, y0, x, y1);
+              }
+            }
+
+            if (previousSkyline >= 0 && skyline >= 0) {
+              silhouetteLine(x - 1, previousSkyline, x, skyline);
+            }
+          }
+
+          const swap = previousContours;
+          previousContours = currentContours;
+          currentContours = swap;
+          previousSkyline = skyline;
+        }
+      }
+
+      function drawMarks() {
+        const inset = 6;
+        const arm = 6;
+
+        for (let i = 0; i < arm; i += 1) {
+          setPixel(inset + i, inset, 210);
+          setPixel(inset, inset + i, 210);
+
+          setPixel(W - 1 - inset - i, inset, 210);
+          setPixel(W - 1 - inset, inset + i, 210);
+
+          setPixel(inset + i, H - 1 - inset, 210);
+          setPixel(inset, H - 1 - inset - i, 210);
+
+          setPixel(W - 1 - inset - i, H - 1 - inset, 210);
+          setPixel(W - 1 - inset, H - 1 - inset - i, 210);
+        }
+      }
+
+      function present() {
+        for (let y = 0; y < H; y += 1) {
+          const row = y * W;
+          for (let x = 0; x < W; x += 1) {
+            const value = luma[row + x];
+            const threshold = DITHER[row + x];
+            data32[row + x] = value > threshold ? INK : SCREEN;
+          }
+        }
+        ctx.putImageData(image, 0, 0);
+      }
+
+      function draw() {
+        const boost = state.boost || state.keyBoost;
+        const sway = Math.sin(state.time * 0.6) * 0.0018;
+        const bob = Math.sin(state.time * 1.25) * 1.1 + (boost ? Math.sin(state.time * 17) * 0.4 : 0);
+        const roll = state.roll + sway;
+
+        drawSky(bob, roll);
+        drawStars(bob, roll);
+        drawSun(bob, roll);
+        drawTerrain(bob, roll);
+        drawMarks();
+        present();
+      }
+
+      /* ── Generative soundtrack ───────────────────────────── */
+
+      function createSoundEngine() {
+        const BPM = 104;
+        const STEP_SECONDS = 60 / BPM / 4;
+        const BAR_SECONDS = STEP_SECONDS * 16;
+        const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const KEY_ROOTS = [50, 45, 52, 43];
+        const PROGRESSIONS = [
+          [0, 8, 3, 10],
+          [0, 5, 8, 10],
+          [0, 3, 10, 8],
+          [0, 10, 8, 3],
+        ];
+        const QUALITIES = { 0: "m", 3: "M", 5: "m", 7: "m", 8: "M", 10: "M" };
+        const ARP_SHAPES = [
+          [0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 2, 1, 3],
+          [0, 2, 1, 3, 0, 2, 1, 3, 2, 0, 3, 1, 2, 0, 3, 1],
+          [0, null, 1, 2, null, 3, 2, 1, 0, null, 2, 3, null, 1, 0, 2],
+          [0, 1, 0, 2, 0, 3, 0, 1, 0, 2, 0, 3, 0, 1, 2, 3],
+          [0, 1, 2, 1, 0, 2, 3, 2, 0, 1, 2, 3, 2, 1, 0, 1],
+        ];
+        const BASS_SHAPES = [
+          [0, null, 0, null, 7, null, 0, null, 0, null, 12, null, 7, null, 0, null],
+          [0, null, 0, 7, null, 0, null, 0, null, 7, null, 12, 0, null, 7, null],
+          [0, null, 12, null, 7, null, 0, 0, null, 7, null, 0, null, 12, null, 7],
+          [0, 0, null, 7, null, 0, 7, null, 0, null, 12, 7, null, 0, null, 7],
+        ];
+        const LEAD_INTERVALS = [-2, -1, -1, 1, 1, 2, 2, 3, -3, 0];
+
+        const SCALE_DEGREES = [0, 2, 3, 5, 7, 8, 10];
+
+        const available = Boolean(window.AudioContext || window.webkitAudioContext);
+
+        let ctx = null;
+        let enabled = false;
+        let active = false;
+        let volume = 0.72;
+        let timer = 0;
+        let nextStepTime = 0;
+        let stepIndex = 0;
+        let barIndex = 0;
+        let lastModulation = 0;
+        let lastKickTime = -10;
+        let noiseBuffer = null;
+        let analyserData = null;
+        let lastScopeCanvas = null;
+        let lastScopeContext = null;
+
+        let bus;
+        let powerGain;
+        let volumeGain;
+        let compressor;
+        let analyser;
+        let kickBus;
+        let snareBus;
+        let hatBus;
+        let hatPan;
+        let bassBus;
+        let bassDuck;
+        let arpBus;
+        let arpPan;
+        let padBus;
+        let leadBus;
+        let leadPan;
+        let leadSend;
+        let snareSend;
+        let arpSend;
+        let padSend;
+        let delaySend;
+        let delayNode;
+        let delayFilter;
+        let delayFeedback;
+        let delayReturn;
+
+        const modulation = { arpCut: 2400, padCut: 1100, bassCut: 520, leadCut: 2600 };
+
+        function midiToFreq(note) {
+          return 440 * Math.pow(2, (note - 69) / 12);
+        }
+
+        function clamp01(value) {
+          return Math.max(0, Math.min(1, value));
+        }
+
+        function compose(seed) {
+          const random = mulberry32((Math.imul(seed, 2654435761) ^ 0x9e3779b9) >>> 0);
+          const key = KEY_ROOTS[Math.floor(random() * KEY_ROOTS.length)];
+          const progression = PROGRESSIONS[Math.floor(random() * PROGRESSIONS.length)].slice();
+          const arp = ARP_SHAPES[Math.floor(random() * ARP_SHAPES.length)].slice();
+          const bass = BASS_SHAPES[Math.floor(random() * BASS_SHAPES.length)].slice();
+          const ghostKick = new Array(16).fill(false);
+          const ghostSnare = new Array(16).fill(false);
+
+          for (const step of [7, 10, 14, 15]) {
+            if (random() < 0.32) ghostKick[step] = true;
+          }
+          for (const step of [10, 15]) {
+            if (random() < 0.28) ghostSnare[step] = true;
+          }
+          for (let i = 0; i < 16; i += 1) {
+            if (arp[i] !== null && random() < 0.08) arp[i] = null;
+          }
+
+          const leadMotif = [];
+          for (let i = 0; i < 10; i += 1) {
+            leadMotif.push(LEAD_INTERVALS[Math.floor(random() * LEAD_INTERVALS.length)]);
+          }
+
+          return {
+            seed,
+            random,
+            key,
+            keyName: NOTE_NAMES[((key % 12) + 12) % 12],
+            progression,
+            arp,
+            bass,
+            ghostKick,
+            ghostSnare,
+            leadWave: random() < 0.6 ? "sawtooth" : "square",
+            leadDetune: 5 + Math.floor(random() * 7),
+            leadVibrato: 4.2 + random() * 1.5,
+            leadCenter: 11 + Math.floor(random() * 3),
+            leadMotif,
+          };
+        }
+
+        let music = compose(state.seed || 1);
+
+        const lead = {
+          active: false,
+          rest: 1,
+          phrase: 0,
+          bar: 0,
+          degree: 11,
+          lastMidi: null,
+          lastTime: -10,
+          motifPos: 0,
+        };
+
+        function chordAt(bar) {
+          const offset = music.progression[bar % 4];
+          return { offset, quality: QUALITIES[offset] || "m" };
+        }
+
+        function chordIntervals(chord) {
+          return chord.quality === "m" ? [0, 3, 7, 10] : [0, 4, 7, 11];
+        }
+
+        function createNoiseBuffer(seconds) {
+          const length = Math.max(1, Math.floor(ctx.sampleRate * seconds));
+          const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < length; i += 1) {
+            data[i] = Math.random() * 2 - 1;
+          }
+          return buffer;
+        }
+
+        function buildGraph() {
+          const AudioCtor = window.AudioContext || window.webkitAudioContext;
+          ctx = new AudioCtor();
+          noiseBuffer = createNoiseBuffer(2);
+
+          bus = ctx.createGain();
+          bus.gain.value = 0.9;
+
+          compressor = ctx.createDynamicsCompressor();
+          compressor.threshold.value = -16;
+          compressor.knee.value = 14;
+          compressor.ratio.value = 3.5;
+          compressor.attack.value = 0.005;
+          compressor.release.value = 0.18;
+
+          volumeGain = ctx.createGain();
+          volumeGain.gain.value = volume * 0.9;
+
+          powerGain = ctx.createGain();
+          powerGain.gain.value = 0;
+
+          analyser = ctx.createAnalyser();
+          analyser.fftSize = 256;
+          analyserData = new Uint8Array(analyser.fftSize);
+
+          bus.connect(compressor);
+          compressor.connect(volumeGain);
+          volumeGain.connect(powerGain);
+          powerGain.connect(analyser);
+          analyser.connect(ctx.destination);
+
+          delaySend = ctx.createGain();
+          delayNode = ctx.createDelay(1.5);
+          delayNode.delayTime.value = STEP_SECONDS * 3;
+          delayFilter = ctx.createBiquadFilter();
+          delayFilter.type = "lowpass";
+          delayFilter.frequency.value = 2600;
+          delayFeedback = ctx.createGain();
+          delayFeedback.gain.value = 0.3;
+          delayReturn = ctx.createGain();
+          delayReturn.gain.value = 0.55;
+          delaySend.connect(delayNode);
+          delayNode.connect(delayFilter);
+          delayFilter.connect(delayReturn);
+          delayReturn.connect(bus);
+          delayFilter.connect(delayFeedback);
+          delayFeedback.connect(delayNode);
+
+          kickBus = ctx.createGain();
+          kickBus.gain.value = 0.9;
+          kickBus.connect(bus);
+
+          snareBus = ctx.createGain();
+          snareBus.gain.value = 0.65;
+          snareBus.connect(bus);
+          snareSend = ctx.createGain();
+          snareSend.gain.value = 0.08;
+          snareBus.connect(snareSend);
+          snareSend.connect(delaySend);
+
+          hatBus = ctx.createGain();
+          hatBus.gain.value = 0.45;
+          hatPan = ctx.createStereoPanner();
+          hatPan.pan.value = -0.28;
+          hatBus.connect(hatPan);
+          hatPan.connect(bus);
+
+          bassBus = ctx.createGain();
+          bassBus.gain.value = 0.75;
+          bassDuck = ctx.createGain();
+          bassBus.connect(bassDuck);
+          bassDuck.connect(bus);
+
+          arpBus = ctx.createGain();
+          arpBus.gain.value = 0.85;
+          arpPan = ctx.createStereoPanner();
+          arpPan.pan.value = 0;
+          arpBus.connect(arpPan);
+          arpPan.connect(bus);
+          arpSend = ctx.createGain();
+          arpSend.gain.value = 0.34;
+          arpPan.connect(arpSend);
+          arpSend.connect(delaySend);
+
+          padBus = ctx.createGain();
+          padBus.gain.value = 0.55;
+          padBus.connect(bus);
+          padSend = ctx.createGain();
+          padSend.gain.value = 0.18;
+          padBus.connect(padSend);
+          padSend.connect(delaySend);
+
+          leadBus = ctx.createGain();
+          leadBus.gain.value = 0.7;
+          leadPan = ctx.createStereoPanner();
+          leadPan.pan.value = 0;
+          leadBus.connect(leadPan);
+          leadPan.connect(bus);
+          leadSend = ctx.createGain();
+          leadSend.gain.value = 0.42;
+          leadPan.connect(leadSend);
+          leadSend.connect(delaySend);
+        }
+
+        function kick(time, velocity) {
+          lastKickTime = time;
+
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(152, time);
+          osc.frequency.exponentialRampToValueAtTime(43, time + 0.11);
+          gain.gain.setValueAtTime(0.0001, time);
+          gain.gain.exponentialRampToValueAtTime(0.9 * velocity, time + 0.004);
+          gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.34);
+          osc.connect(gain);
+          gain.connect(kickBus);
+          osc.start(time);
+          osc.stop(time + 0.38);
+
+          const click = ctx.createBufferSource();
+          click.buffer = noiseBuffer;
+          const highpass = ctx.createBiquadFilter();
+          highpass.type = "highpass";
+          highpass.frequency.value = 2600;
+          const clickGain = ctx.createGain();
+          clickGain.gain.setValueAtTime(0.0001, time);
+          clickGain.gain.exponentialRampToValueAtTime(0.08 * velocity, time + 0.003);
+          clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.028);
+          click.connect(highpass);
+          highpass.connect(clickGain);
+          clickGain.connect(kickBus);
+          click.start(time, Math.random() * 1.4, 0.04);
+          click.stop(time + 0.04);
+
+          bassDuck.gain.cancelScheduledValues(time);
+          bassDuck.gain.setValueAtTime(0.25, time);
+          bassDuck.gain.linearRampToValueAtTime(1, time + 0.13);
+        }
+
+        function snare(time, velocity) {
+          const noise = ctx.createBufferSource();
+          noise.buffer = noiseBuffer;
+          const highpass = ctx.createBiquadFilter();
+          highpass.type = "highpass";
+          highpass.frequency.value = 900;
+          const peak = ctx.createBiquadFilter();
+          peak.type = "peaking";
+          peak.frequency.value = 2200;
+          peak.Q.value = 0.8;
+          peak.gain.value = 5;
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.0001, time);
+          gain.gain.exponentialRampToValueAtTime(0.34 * velocity, time + 0.005);
+          gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.17);
+          noise.connect(highpass);
+          highpass.connect(peak);
+          peak.connect(gain);
+          gain.connect(snareBus);
+          noise.start(time, Math.random() * 1.5, 0.2);
+          noise.stop(time + 0.2);
+
+          const body = ctx.createOscillator();
+          const bodyGain = ctx.createGain();
+          body.type = "triangle";
+          body.frequency.setValueAtTime(190, time);
+          bodyGain.gain.setValueAtTime(0.0001, time);
+          bodyGain.gain.exponentialRampToValueAtTime(0.07 * velocity, time + 0.004);
+          bodyGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.09);
+          body.connect(bodyGain);
+          bodyGain.connect(snareBus);
+          body.start(time);
+          body.stop(time + 0.1);
+        }
+
+        function hat(time, open, velocity) {
+          const noise = ctx.createBufferSource();
+          noise.buffer = noiseBuffer;
+          const highpass = ctx.createBiquadFilter();
+          highpass.type = "highpass";
+          highpass.frequency.value = open ? 6400 : 7600;
+          const gain = ctx.createGain();
+          const duration = open ? 0.2 : 0.045;
+          gain.gain.setValueAtTime(0.0001, time);
+          gain.gain.exponentialRampToValueAtTime(0.1 * velocity, time + 0.002);
+          gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+          noise.connect(highpass);
+          highpass.connect(gain);
+          gain.connect(hatBus);
+          noise.start(time, Math.random() * 1.6, duration + 0.02);
+          noise.stop(time + duration + 0.02);
+        }
+
+        function bass(time, midi, duration, velocity) {
+          while (midi < 36) midi += 12;
+          const osc = ctx.createOscillator();
+          osc.type = "sawtooth";
+          osc.frequency.value = midiToFreq(midi);
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.Q.value = 4.5;
+          filter.frequency.setValueAtTime(modulation.bassCut, time);
+          filter.frequency.exponentialRampToValueAtTime(170, time + Math.min(duration, 0.16));
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.0001, time);
+          gain.gain.exponentialRampToValueAtTime(0.24 * velocity, time + 0.005);
+          gain.gain.setValueAtTime(0.24 * velocity, time + duration * 0.65);
+          gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(bassBus);
+          osc.start(time);
+          osc.stop(time + duration + 0.02);
+        }
+
+        function pluck(time, midi, duration, velocity) {
+          const osc = ctx.createOscillator();
+          osc.type = "triangle";
+          osc.frequency.value = midiToFreq(midi);
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.Q.value = 2.2;
+          const cutoff = modulation.arpCut * (0.72 + 0.28 * velocity);
+          filter.frequency.setValueAtTime(cutoff, time);
+          filter.frequency.exponentialRampToValueAtTime(Math.max(260, cutoff * 0.22), time + duration);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.0001, time);
+          gain.gain.exponentialRampToValueAtTime(0.11 * velocity, time + 0.004);
+          gain.gain.exponentialRampToValueAtTime(0.0001, time + duration + 0.04);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(arpBus);
+          osc.start(time);
+          osc.stop(time + duration + 0.07);
+        }
+
+        function degreeToMidi(degree) {
+          const octave = Math.floor(degree / 7);
+          return music.key + 12 * octave + SCALE_DEGREES[((degree % 7) + 7) % 7];
+        }
+
+        function nearestChordDegree(offset, target) {
+          const rootIndex = SCALE_DEGREES.indexOf(((offset % 12) + 12) % 12);
+          if (rootIndex < 0) return target;
+
+          let best = target;
+          let bestDistance = Infinity;
+          for (let octave = 0; octave < 3; octave += 1) {
+            for (const step of [0, 2, 4, 6]) {
+              const degree = rootIndex + octave * 7 + step;
+              if (degree < 8 || degree > 17) continue;
+              const distance = Math.abs(degree - target);
+              if (distance < bestDistance) {
+                bestDistance = distance;
+                best = degree;
+              }
+            }
+          }
+          return best;
+        }
+
+        function soloNote(time, midi, duration, velocity) {
+          const frequency = midiToFreq(midi);
+          const previousFrequency = lead.lastMidi !== null ? midiToFreq(lead.lastMidi) : frequency;
+          const glide = lead.lastMidi !== null
+            && lead.lastMidi !== midi
+            && time - lead.lastTime < 0.42
+            && Math.abs(lead.lastMidi - midi) <= 7;
+          const scoop = !glide && music.random() < 0.25;
+
+          const oscA = ctx.createOscillator();
+          const oscB = ctx.createOscillator();
+          oscA.type = music.leadWave;
+          oscB.type = music.leadWave;
+          oscA.detune.value = -music.leadDetune;
+          oscB.detune.value = music.leadDetune;
+
+          if (glide) {
+            oscA.frequency.setValueAtTime(previousFrequency, time);
+            oscB.frequency.setValueAtTime(previousFrequency, time);
+            oscA.frequency.exponentialRampToValueAtTime(frequency, time + 0.09);
+            oscB.frequency.exponentialRampToValueAtTime(frequency, time + 0.09);
+          } else {
+            const startFrequency = scoop ? frequency * 0.985 : frequency;
+            oscA.frequency.setValueAtTime(startFrequency, time);
+            oscB.frequency.setValueAtTime(startFrequency, time);
+            if (scoop) {
+              oscA.frequency.exponentialRampToValueAtTime(frequency, time + 0.05);
+              oscB.frequency.exponentialRampToValueAtTime(frequency, time + 0.05);
+            }
+          }
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.Q.value = 4.2;
+          const opening = Math.min(6200, modulation.leadCut + velocity * 900);
+          filter.frequency.setValueAtTime(opening, time);
+          filter.frequency.exponentialRampToValueAtTime(
+            Math.max(520, modulation.leadCut * 0.42),
+            time + Math.min(0.65, duration + 0.12),
+          );
+
+          const gain = ctx.createGain();
+          const peak = 0.1 + velocity * 0.04;
+          gain.gain.setValueAtTime(0.0001, time);
+          gain.gain.exponentialRampToValueAtTime(peak, time + 0.035);
+          gain.gain.setValueAtTime(peak * 0.78, time + Math.min(duration, 0.5));
+          gain.gain.exponentialRampToValueAtTime(0.0001, time + duration + 0.28);
+
+          const lfo = ctx.createOscillator();
+          const lfoGain = ctx.createGain();
+          lfo.type = "sine";
+          lfo.frequency.value = music.leadVibrato;
+          lfoGain.gain.setValueAtTime(0, time);
+          lfoGain.gain.linearRampToValueAtTime(10, time + 0.22);
+          lfo.connect(lfoGain);
+          lfoGain.connect(oscA.detune);
+          lfoGain.connect(oscB.detune);
+
+          oscA.connect(filter);
+          oscB.connect(filter);
+          filter.connect(gain);
+          gain.connect(leadBus);
+
+          const end = time + duration + 0.32;
+          oscA.start(time);
+          oscB.start(time);
+          lfo.start(time);
+          oscA.stop(end);
+          oscB.stop(end);
+          lfo.stop(end);
+
+          lead.lastMidi = midi;
+          lead.lastTime = time;
+        }
+
+        function resetLeadState() {
+          lead.active = false;
+          lead.rest = 1;
+          lead.phrase = 0;
+          lead.bar = 0;
+          lead.degree = music.leadCenter;
+          lead.lastMidi = null;
+          lead.lastTime = -10;
+          lead.motifPos = 0;
+          if (ctx && arpBus) arpBus.gain.setTargetAtTime(0.85, ctx.currentTime, 0.2);
+        }
+
+        function scheduleLeadBar(bar, barInPhrase, time) {
+          const chord = chordAt(bar);
+          const boost = Boolean(state.boost || state.keyBoost);
+          const energy = Math.min(1, 0.62 + barInPhrase * 0.11 + (boost ? 0.12 : 0));
+          const weights = [0.84, 0.28, 0.54, 0.3, 0.72, 0.26, 0.56, 0.32];
+          const onsets = [];
+
+          for (let i = 0; i < 8; i += 1) {
+            if (music.random() < weights[i] * energy) onsets.push(i * 2);
+          }
+          if (!onsets.includes(0) && music.random() < 0.7) onsets.push(0);
+          if (onsets.length < 2) {
+            for (const step of [0, 8, 4, 12]) {
+              if (onsets.length >= 2) break;
+              if (!onsets.includes(step)) onsets.push(step);
+            }
+          }
+          if (barInPhrase === lead.phrase - 1 && music.random() < 0.55) {
+            if (!onsets.includes(13)) onsets.push(13);
+            if (!onsets.includes(15)) onsets.push(15);
+          }
+          onsets.sort((a, b) => a - b);
+
+          for (let i = 0; i < onsets.length; i += 1) {
+            const step = onsets[i];
+            const next = i + 1 < onsets.length ? onsets[i + 1] : 16;
+            const gapSteps = next - step;
+            const duration = Math.max(0.16, Math.min(0.85, gapSteps * STEP_SECONDS * 0.88));
+            const strong = step % 4 === 0;
+            const interval = music.leadMotif[lead.motifPos % music.leadMotif.length];
+            lead.motifPos += 1;
+
+            lead.degree = Math.max(8, Math.min(17, lead.degree + interval));
+            if (strong || lead.lastMidi === null) {
+              lead.degree = nearestChordDegree(chord.offset, lead.degree);
+            }
+
+            if (lead.lastMidi !== null && degreeToMidi(lead.degree) === lead.lastMidi && music.random() < 0.4) {
+              lead.degree = Math.max(8, Math.min(17, lead.degree + (music.random() < 0.5 ? -1 : 1)));
+              if (strong) lead.degree = nearestChordDegree(chord.offset, lead.degree);
+            }
+
+            const midi = degreeToMidi(lead.degree);
+            const velocity = Math.min(1, 0.66 + energy * 0.22 + (strong ? 0.1 : 0));
+            soloNote(time + step * STEP_SECONDS, midi, duration, velocity);
+          }
+        }
+
+        function advanceLead(bar, time) {
+          if (!ctx || !arpBus) return;
+
+          if (lead.active) {
+            if (lead.bar >= lead.phrase) {
+              lead.active = false;
+              lead.rest = 1 + Math.floor(music.random() * 3);
+              lead.phrase = 0;
+              lead.bar = 0;
+              arpBus.gain.setTargetAtTime(0.85, time, 0.3);
+              return;
+            }
+          } else {
+            if (lead.rest > 0) {
+              lead.rest -= 1;
+              return;
+            }
+
+            lead.active = true;
+            lead.phrase = 2 + Math.floor(music.random() * 3);
+            lead.bar = 0;
+            lead.degree = Math.max(8, Math.min(17, music.leadCenter + Math.floor(music.random() * 3) - 1));
+            lead.motifPos = 0;
+            lead.lastMidi = null;
+            arpBus.gain.setTargetAtTime(0.62, time, 0.3);
+          }
+
+          scheduleLeadBar(bar, lead.bar, time);
+          lead.bar += 1;
+        }
+
+        function pad(time, chord) {
+          const intervals = chord.quality === "m" ? [0, 3, 7] : [0, 4, 7];
+          const root = music.key + 12 + chord.offset;
+          const filter = ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.Q.value = 0.6;
+          filter.frequency.setValueAtTime(modulation.padCut, time);
+
+          const envelope = ctx.createGain();
+          envelope.gain.setValueAtTime(0.0001, time);
+          envelope.gain.linearRampToValueAtTime(0.88, time + 0.3);
+          envelope.gain.setValueAtTime(0.88, time + BAR_SECONDS * 0.62);
+          envelope.gain.exponentialRampToValueAtTime(0.0001, time + BAR_SECONDS + 0.55);
+          filter.connect(envelope);
+          envelope.connect(padBus);
+
+          for (const interval of intervals) {
+            for (const detune of [-6, 6]) {
+              const osc = ctx.createOscillator();
+              osc.type = "sawtooth";
+              osc.frequency.value = midiToFreq(root + interval);
+              osc.detune.value = detune;
+              const gain = ctx.createGain();
+              gain.gain.value = 0.042;
+              osc.connect(gain);
+              gain.connect(filter);
+              osc.start(time);
+              osc.stop(time + BAR_SECONDS + 0.7);
+            }
+          }
+        }
+
+        function crash(time, velocity) {
+          const noise = ctx.createBufferSource();
+          noise.buffer = noiseBuffer;
+          const highpass = ctx.createBiquadFilter();
+          highpass.type = "highpass";
+          highpass.frequency.value = 3200;
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.0001, time);
+          gain.gain.exponentialRampToValueAtTime(0.085 * velocity, time + 0.006);
+          gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.8);
+          noise.connect(highpass);
+          highpass.connect(gain);
+          gain.connect(bus);
+          noise.start(time, Math.random() * 1.0, 0.9);
+          noise.stop(time + 0.9);
+        }
+
+        function sweep(time) {
+          const noise = ctx.createBufferSource();
+          noise.buffer = noiseBuffer;
+          const bandpass = ctx.createBiquadFilter();
+          bandpass.type = "bandpass";
+          bandpass.Q.value = 1.1;
+          bandpass.frequency.setValueAtTime(260, time);
+          bandpass.frequency.exponentialRampToValueAtTime(4600, time + 0.55);
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.0001, time);
+          gain.gain.exponentialRampToValueAtTime(0.05, time + 0.07);
+          gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.75);
+          noise.connect(bandpass);
+          bandpass.connect(gain);
+          gain.connect(bus);
+          noise.start(time, Math.random() * 1.0, 0.8);
+          noise.stop(time + 0.8);
+        }
+
+        function evolvePatterns() {
+          if (!music) return;
+          const random = music.random;
+
+          if (random() < 0.45) {
+            const next = ARP_SHAPES[Math.floor(random() * ARP_SHAPES.length)];
+            music.arp = next.map((value) => (value !== null && random() < 0.1 ? null : value));
+          } else {
+            for (let i = 0; i < 2; i += 1) {
+              const step = Math.floor(random() * 16);
+              if (music.arp[step] === null) music.arp[step] = Math.floor(random() * 4);
+              else if (random() < 0.4) music.arp[step] = null;
+            }
+          }
+
+          for (let i = 0; i < 2; i += 1) {
+            const step = 1 + Math.floor(random() * 15);
+            if (step === 8) continue;
+            if (music.bass[step] !== null && random() < 0.4) {
+              music.bass[step] = null;
+            } else if (music.bass[step] === null && random() < 0.45) {
+              music.bass[step] = [0, 7, 12][Math.floor(random() * 3)];
+            }
+          }
+
+          music.bass[0] = 0;
+          if (music.bass[8] === null) music.bass[8] = 0;
+
+          let arpCount = 0;
+          for (let i = 0; i < 16; i += 1) if (music.arp[i] !== null) arpCount += 1;
+          if (arpCount < 8) {
+            for (let i = 0; i < 16 && arpCount < 8; i += 1) {
+              if (music.arp[i] === null) {
+                music.arp[i] = i % 4;
+                arpCount += 1;
+              }
+            }
+          }
+
+          music.ghostKick[14] = random() < 0.3;
+          music.ghostKick[15] = random() < 0.2;
+          music.ghostSnare[15] = random() < 0.25;
+        }
+
+        function onBarStart(bar, time) {
+          if (state.seed !== music.seed) {
+            music = compose(state.seed);
+            resetLeadState();
+          } else if (bar > 0 && bar % 8 === 0) {
+            evolvePatterns();
+          }
+
+          if (bar > 0 && bar % 32 === 0) {
+            music.progression = PROGRESSIONS[Math.floor(music.random() * PROGRESSIONS.length)].slice();
+          }
+
+          advanceLead(bar, time);
+          pad(time, chordAt(bar));
+        }
+
+        function scheduleStep(step, bar, time) {
+          const chord = chordAt(bar);
+          const boost = Boolean(state.boost || state.keyBoost);
+          const fill = bar % 8 === 7;
+          const beat = step % 4 === 0;
+
+          if (beat) kick(time, step === 0 ? 1 : 0.9);
+          if (music.ghostKick[step] && !(fill && step >= 13)) kick(time, 0.4);
+
+          if (step === 4 || step === 12) snare(time, step === 12 ? 0.95 : 0.85);
+          if (music.ghostSnare[step] && step !== 4 && step !== 12) snare(time, 0.4);
+          if (fill && step >= 13) snare(time, 0.45 + (step - 12) * 0.16);
+
+          if (step % 2 === 0) {
+            hat(time, false, beat ? 1 : 0.62);
+          } else if (music.random() < 0.14 + (boost ? 0.28 : 0)) {
+            hat(time, false, 0.38 + (boost ? 0.16 : 0));
+          }
+          if (step === 14 && bar % 2 === 0) hat(time, true, 0.55);
+          if (step === 0 && bar % 8 === 0) crash(time, bar === 0 ? 0.8 : 0.5);
+
+          const bassStep = music.bass[step];
+          if (bassStep !== null && bassStep !== undefined) {
+            let midi = music.key - 12 + chord.offset + bassStep;
+            while (midi < 36) midi += 12;
+            bass(time, midi, 0.16, beat ? 1 : 0.72);
+          }
+
+          const arpStep = music.arp[step];
+          if (arpStep !== null) {
+            const intervals = chordIntervals(chord);
+            const midi = music.key + 12 + chord.offset + intervals[arpStep % intervals.length];
+            const velocity = Math.min(1, 0.72 + (beat ? 0.2 : 0) + (boost ? 0.12 : 0));
+            pluck(time, midi, 0.14, velocity);
+          }
+        }
+
+        function updateModulation() {
+          if (!ctx) return;
+          const now = ctx.currentTime;
+          const altitude = clamp01((state.camY - 16) / 82);
+          const boost = Boolean(state.boost || state.keyBoost);
+
+          modulation.arpCut = 1600 + altitude * 2600 + (boost ? 900 : 0);
+          modulation.padCut = 700 + altitude * 1300 + (boost ? 400 : 0);
+          modulation.bassCut = 380 + altitude * 280 + (boost ? 200 : 0);
+          modulation.leadCut = 1500 + altitude * 2400 + (boost ? 800 : 0);
+
+          arpPan.pan.setTargetAtTime(Math.max(-0.65, Math.min(0.65, state.roll * 22)), now, 0.08);
+          leadPan.pan.setTargetAtTime(
+            Math.max(-0.7, Math.min(0.7, state.roll * 16 + Math.sin(now * 0.35) * 0.08)),
+            now,
+            0.12,
+          );
+          arpSend.gain.setTargetAtTime(0.26 + (boost ? 0.14 : 0), now, 0.18);
+        }
+
+        function scheduler() {
+          if (!ctx || !active) return;
+          const now = ctx.currentTime;
+
+          if (nextStepTime < now - 0.25) nextStepTime = now + 0.03;
+
+          let guard = 0;
+          while (nextStepTime < now + 0.1 && guard < 16) {
+            const step = stepIndex;
+            const bar = barIndex;
+            if (step === 0) onBarStart(bar, nextStepTime);
+            scheduleStep(step, bar, nextStepTime);
+            stepIndex = (stepIndex + 1) % 16;
+            if (stepIndex === 0) barIndex += 1;
+            nextStepTime += STEP_SECONDS;
+            guard += 1;
+          }
+
+          if (now - lastModulation > 0.08) {
+            updateModulation();
+            lastModulation = now;
+          }
+        }
+
+        function startTimer() {
+          if (timer) return;
+          timer = window.setInterval(scheduler, 25);
+          scheduler();
+        }
+
+        function stopTimer() {
+          if (!timer) return;
+          window.clearInterval(timer);
+          timer = 0;
+        }
+
+        function setRunning(running) {
+          if (!enabled || !ctx) {
+            if (!enabled) active = false;
+            return;
+          }
+          const next = Boolean(running && !document.hidden);
+          if (next === active) {
+            if (!next) stopTimer();
+            return;
+          }
+
+          active = next;
+          const now = ctx.currentTime;
+
+          if (active) {
+            if (nextStepTime <= now) nextStepTime = now + 0.06;
+            if (ctx.state === "suspended") ctx.resume().catch(() => {});
+            powerGain.gain.cancelScheduledValues(now);
+            powerGain.gain.setTargetAtTime(1, now, 0.07);
+            updateModulation();
+            startTimer();
+          } else {
+            powerGain.gain.cancelScheduledValues(now);
+            powerGain.gain.setTargetAtTime(0, now, 0.05);
+            stopTimer();
+            nextStepTime = 0;
+          }
+        }
+
+        function setVolume(value) {
+          volume = clamp01(value);
+          if (ctx && volumeGain) {
+            volumeGain.gain.setTargetAtTime(volume * 0.9, ctx.currentTime, 0.03);
+          }
+        }
+
+        async function start() {
+          if (!available || enabled) return available;
+          try {
+            if (!ctx) buildGraph();
+          } catch (error) {
+            return false;
+          }
+
+          music = compose(state.seed || 1);
+          stepIndex = 0;
+          barIndex = 0;
+          nextStepTime = 0;
+          lastKickTime = -10;
+
+          if (ctx.state === "suspended") {
+            try {
+              await ctx.resume();
+            } catch (error) {
+              return false;
+            }
+          }
+
+          enabled = true;
+          setVolume(volume);
+          resetLeadState();
+          setRunning(state.running);
+          return true;
+        }
+
+        function stop() {
+          enabled = false;
+          active = false;
+          stopTimer();
+          if (ctx) {
+            const now = ctx.currentTime;
+            powerGain.gain.cancelScheduledValues(now);
+            powerGain.gain.setTargetAtTime(0, now, 0.05);
+          }
+          nextStepTime = 0;
+        }
+
+        function onReseed() {
+          if (!enabled || !active || !ctx) {
+            music = compose(state.seed || 1);
+            resetLeadState();
+            return;
+          }
+          sweep(ctx.currentTime + 0.02);
+        }
+
+        function getMeta() {
+          return `${music ? music.keyName : "D"} MINOR / ${BPM} BPM`;
+        }
+
+        function drawScope(canvasElement) {
+          if (!canvasElement) return;
+          if (lastScopeCanvas !== canvasElement) {
+            lastScopeCanvas = canvasElement;
+            lastScopeContext = canvasElement.getContext("2d");
+          }
+
+          const g = lastScopeContext;
+          if (!g) return;
+          const width = canvasElement.width;
+          const height = canvasElement.height;
+          const mid = height >> 1;
+
+          g.fillStyle = "#050504";
+          g.fillRect(0, 0, width, height);
+
+          g.fillStyle = "#262620";
+          for (let x = 5; x < width; x += 8) {
+            for (let y = 4; y < height - 2; y += 6) {
+              if (y !== mid) g.fillRect(x, y, 1, 1);
+            }
+          }
+
+          g.fillStyle = "#3b3b32";
+          for (let x = 0; x < width; x += 5) {
+            g.fillRect(x, mid, 3, 1);
+          }
+
+          if (!ctx || !active || !analyser) return;
+
+          analyser.getByteTimeDomainData(analyserData);
+
+          let peak = 0.0001;
+          for (let i = 0; i < analyserData.length; i += 1) {
+            const amplitude = Math.abs((analyserData[i] - 128) / 128);
+            if (amplitude > peak) peak = amplitude;
+          }
+          const gain = Math.min(5, 0.9 / peak);
+
+          g.fillStyle = "#ecebe0";
+
+          let previousY = mid;
+          for (let x = 0; x < width; x += 1) {
+            const index = Math.floor((x / (width - 1)) * (analyserData.length - 1));
+            const sample = ((analyserData[index] - 128) / 128) * gain;
+            const y = Math.max(2, Math.min(height - 3, Math.round(mid - sample * (mid - 4))));
+            g.fillRect(x, Math.min(previousY, y), 1, Math.abs(y - previousY) + 1);
+            previousY = y;
+          }
+
+          if (ctx.currentTime - lastKickTime < 0.12) {
+            g.fillStyle = "#ecebe0";
+            g.fillRect(width - 4, 3, 2, 2);
+          }
+        }
+
+        document.addEventListener("visibilitychange", () => {
+          setRunning(state.running);
+        });
+
+        return {
+          isAvailable: () => available,
+          isEnabled: () => enabled,
+          isActive: () => active,
+          getLead: () => lead.active,
+          start,
+          stop,
+          setRunning,
+          setVolume,
+          onReseed,
+          getMeta,
+          drawScope,
+        };
+      }
+
+      const audio = createSoundEngine();
+
+      const keys = new Set();
+
+      const readSpeed = document.getElementById("readSpeed");
+      const readAlt = document.getElementById("readAlt");
+      const readDist = document.getElementById("readDist");
+      const readHeading = document.getElementById("readHeading");
+      const flightState = document.getElementById("flightState");
+      const pauseButton = document.getElementById("pauseButton");
+      const boostButton = document.getElementById("boostButton");
+      const seedButton = document.getElementById("seedButton");
+      const audioButton = document.getElementById("audioButton");
+      const audioState = document.getElementById("audioState");
+      const audioLead = document.getElementById("audioLead");
+      const audioMeta = document.getElementById("audioMeta");
+      const volumeInput = document.getElementById("volume");
+      const volumeValue = document.getElementById("volumeValue");
+      const audioScope = document.getElementById("audioScope");
+
+      function telemetry() {
+        const boosting = state.boost || state.keyBoost;
+        readSpeed.textContent = String(boosting ? 94 : 42).padStart(3, "0");
+        readAlt.textContent = String(Math.round(state.camY)).padStart(3, "0");
+        readDist.textContent = String(Math.floor(state.distance)).padStart(5, "0");
+        readHeading.textContent = String(Math.round(((state.yaw * 180) / Math.PI + 360) % 360)).padStart(3, "0");
+        boostButton.classList.toggle("is-on", boosting);
+        boostButton.setAttribute("aria-pressed", boosting ? "true" : "false");
+      }
+
+      let audioUiCache = "";
+      let audioError = "";
+
+      function syncAudioUi() {
+        const isEnabled = audio.isEnabled();
+        const isActive = audio.isActive();
+        const solo = isActive && audio.getLead();
+        const label = audioError || (isEnabled ? (isActive ? "Playing" : "Standby") : "Silent");
+        const leadLabel = solo ? "Solo" : "Rest";
+        const meta = audio.getMeta();
+        const cache = `${isEnabled}|${isActive}|${label}|${meta}|${audioError}|${leadLabel}`;
+
+        if (cache === audioUiCache) return;
+        audioUiCache = cache;
+
+        audioButton.textContent = isEnabled ? "Stop audio" : "Start audio";
+        audioButton.classList.toggle("is-on", isEnabled);
+        audioButton.setAttribute("aria-pressed", isEnabled ? "true" : "false");
+
+        if (audioState.textContent !== label) audioState.textContent = label;
+        audioState.classList.toggle("is-live", isEnabled && isActive);
+
+        if (audioLead.textContent !== leadLabel) audioLead.textContent = leadLabel;
+        audioLead.classList.toggle("is-solo", solo);
+
+        if (audioMeta.textContent !== meta) audioMeta.textContent = meta;
+      }
+
+      function syncRunningUi() {
+        pauseButton.textContent = state.running ? "Pause" : "Resume";
+        pauseButton.classList.toggle("is-primary", state.running);
+        flightState.textContent = state.running ? (state.boost || state.keyBoost ? "BOOST" : "LIVE") : "PAUSED";
+        flightState.classList.toggle("is-paused", !state.running);
+        audio.setRunning(state.running);
+        syncAudioUi();
+      }
+
+      let lastScopeDraw = 0;
+
+      function frame(now) {
+        window.requestAnimationFrame(frame);
+
+        if (!state.lastFrame) state.lastFrame = now;
+        const dt = Math.min(0.05, (now - state.lastFrame) / 1000);
+        state.lastFrame = now;
+
+        if (!state.running) return;
+
+        update(dt);
+
+        if (now - state.lastRender >= 1000 / TARGET_FPS) {
+          draw();
+          telemetry();
+          syncRunningUi();
+          state.lastRender = now;
+        }
+
+        if (now - lastScopeDraw >= 55) {
+          audio.drawScope(audioScope);
+          lastScopeDraw = now;
+        }
+      }
+
+      pauseButton.addEventListener("click", () => {
+        state.running = !state.running;
+        state.lastFrame = 0;
+        syncRunningUi();
+        if (!state.running) {
+          draw();
+          audio.drawScope(audioScope);
+        }
+      });
+
+      boostButton.addEventListener("click", () => {
+        state.boost = !state.boost;
+        telemetry();
+        syncRunningUi();
+      });
+
+      seedButton.addEventListener("click", () => {
+        resetSeed(state.seed + 1);
+        audio.onReseed();
+        draw();
+        telemetry();
+        syncRunningUi();
+      });
+
+      audioButton.addEventListener("click", async () => {
+        audioError = "";
+
+        if (audio.isEnabled()) {
+          audio.stop();
+          syncAudioUi();
+          audio.drawScope(audioScope);
+          return;
+        }
+
+        if (!audio.isAvailable()) {
+          audioError = "No audio";
+          audioButton.disabled = true;
+          syncAudioUi();
+          return;
+        }
+
+        const started = await audio.start();
+
+        if (!started) {
+          audioError = "Audio blocked";
+          syncAudioUi();
+          return;
+        }
+
+        syncAudioUi();
+        audio.drawScope(audioScope);
+      });
+
+      volumeInput.addEventListener("input", () => {
+        const value = Number(volumeInput.value);
+        volumeValue.textContent = String(value).padStart(3, "0");
+        audio.setVolume(value / 100);
+      });
+
+      audio.setVolume(Number(volumeInput.value) / 100);
+
+      window.addEventListener("keydown", (event) => {
+        const target = event.target;
+        const typing = target && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+
+        if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
+
+        if (event.code === "Space") {
+          const onControl = target && (target.tagName === "BUTTON" || target.tagName === "A");
+          if (onControl) return;
+          event.preventDefault();
+          if (!event.repeat) {
+            state.keyBoost = !state.keyBoost;
+            telemetry();
+            syncRunningUi();
+          }
+          return;
+        }
+
+        if (event.code === "KeyP") {
+          event.preventDefault();
+          pauseButton.click();
+          return;
+        }
+
+        if (event.code === "KeyR") {
+          event.preventDefault();
+          seedButton.click();
+          return;
+        }
+
+        if (event.code === "KeyM") {
+          event.preventDefault();
+          audioButton.click();
+          return;
+        }
+
+        if (event.code === "ArrowLeft" || event.code === "ArrowRight" || event.code === "ArrowUp" || event.code === "ArrowDown") {
+          event.preventDefault();
+          keys.add(event.code);
+        }
+      });
+
+      window.addEventListener("keyup", (event) => {
+        keys.delete(event.code);
+      });
+
+      window.addEventListener("blur", () => {
+        keys.clear();
+      });
+
+      if (typeof reduceMotion.addEventListener === "function") {
+        reduceMotion.addEventListener("change", (event) => {
+          if (event.matches) {
+            state.running = false;
+            state.lastFrame = 0;
+            draw();
+            telemetry();
+            syncRunningUi();
+            audio.drawScope(audioScope);
+          }
+        });
+      }
+
+      resetSeed(1);
+      draw();
+      telemetry();
+      syncRunningUi();
+      syncAudioUi();
+      audio.drawScope(audioScope);
+      window.requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>

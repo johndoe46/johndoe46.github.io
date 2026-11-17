@@ -677,6 +677,44 @@
       outline-offset: 3px;
     }
 
+    .mode {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--ink-dim);
+      font-size: 8px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .mode-button {
+      padding: 5px 8px 4px;
+      border: 1px solid var(--line-soft);
+      background: transparent;
+      color: var(--ink-dim);
+      font-family: inherit;
+      font-size: 8px;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .mode-button:hover {
+      border-color: var(--ink);
+      color: var(--ink);
+    }
+
+    .mode-button.is-active {
+      background: var(--ink);
+      color: var(--bg);
+      border-color: var(--ink);
+    }
+
+    .mode-button:focus-visible {
+      outline: 2px dashed var(--ink);
+      outline-offset: 2px;
+    }
+
     .sound-view {
       display: flex;
       align-items: center;
@@ -912,7 +950,7 @@
         </div>
         <p class="lede">
           <b>No map. No destination.</b>
-          A mountain range generated as it arrives, sampled one ray at a time and dithered down to a single bit. Underneath, a generative sequencer keeps time while a solo synth improvises over the changes.
+          A mountain range generated as it arrives, sampled one ray at a time and dithered down to a single bit. Underneath, a generative score can drive or drift while a solo synth improvises over the changes.
         </p>
       </header>
 
@@ -969,6 +1007,11 @@
             <input id="volume" type="range" min="0" max="100" step="1" value="72" aria-label="Soundtrack volume">
             <output id="volumeValue" for="volume">072</output>
           </label>
+          <div class="mode" role="group" aria-label="Soundtrack mode">
+            <span>Mode</span>
+            <button class="mode-button is-active" id="modeDrive" type="button" aria-pressed="true">Drive</button>
+            <button class="mode-button" id="modeAmbient" type="button" aria-pressed="false">Ambient</button>
+          </div>
           <div class="sound-view">
             <canvas id="audioScope" width="180" height="36" aria-hidden="true"></canvas>
             <span class="sound-meta" id="audioMeta">D MINOR / 104 BPM</span>
@@ -1541,9 +1584,13 @@
       /* ── Generative soundtrack ───────────────────────────── */
 
       function createSoundEngine() {
-        const BPM = 104;
-        const STEP_SECONDS = 60 / BPM / 4;
-        const BAR_SECONDS = STEP_SECONDS * 16;
+        const MODES = {
+          drive: { bpm: 104, barsPerChord: 1 },
+          ambient: { bpm: 60, barsPerChord: 2 },
+        };
+        let mode = "drive";
+        let stepSeconds = 60 / MODES[mode].bpm / 4;
+        let barSeconds = stepSeconds * 16;
         const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
         const KEY_ROOTS = [50, 45, 52, 43];
         const PROGRESSIONS = [
@@ -1582,6 +1629,7 @@
         let barIndex = 0;
         let lastModulation = 0;
         let lastKickTime = -10;
+        let modeTransition = 0;
         let noiseBuffer = null;
         let analyserData = null;
         let lastScopeCanvas = null;
@@ -1604,6 +1652,9 @@
         let leadBus;
         let leadPan;
         let leadSend;
+        let bellBus;
+        let bellPan;
+        let bellSend;
         let snareSend;
         let arpSend;
         let padSend;
@@ -1678,8 +1729,11 @@
           motifPos: 0,
         };
 
+        const sustainedVoices = new Set();
+
         function chordAt(bar) {
-          const offset = music.progression[bar % 4];
+          const index = mode === "ambient" ? Math.floor(bar / 2) % 4 : bar % 4;
+          const offset = music.progression[index];
           return { offset, quality: QUALITIES[offset] || "m" };
         }
 
@@ -1695,6 +1749,27 @@
             data[i] = Math.random() * 2 - 1;
           }
           return buffer;
+        }
+
+        function trackVoice(source) {
+          sustainedVoices.add(source);
+          source.onended = () => sustainedVoices.delete(source);
+        }
+
+        function stopSustainedVoices(time) {
+          if (!ctx) {
+            sustainedVoices.clear();
+            return;
+          }
+          const when = typeof time === "number" ? time : ctx.currentTime;
+          for (const source of Array.from(sustainedVoices)) {
+            try {
+              source.stop(when);
+            } catch (error) {
+              // The source has already stopped.
+            }
+          }
+          sustainedVoices.clear();
         }
 
         function buildGraph() {
@@ -1730,7 +1805,7 @@
 
           delaySend = ctx.createGain();
           delayNode = ctx.createDelay(1.5);
-          delayNode.delayTime.value = STEP_SECONDS * 3;
+          delayNode.delayTime.value = stepSeconds * 3;
           delayFilter = ctx.createBiquadFilter();
           delayFilter.type = "lowpass";
           delayFilter.frequency.value = 2600;
@@ -1799,6 +1874,86 @@
           leadSend.gain.value = 0.42;
           leadPan.connect(leadSend);
           leadSend.connect(delaySend);
+
+          bellBus = ctx.createGain();
+          bellBus.gain.value = 0.5;
+          bellPan = ctx.createStereoPanner();
+          bellPan.pan.value = 0;
+          bellBus.connect(bellPan);
+          bellPan.connect(bus);
+          bellSend = ctx.createGain();
+          bellSend.gain.value = 0.5;
+          bellPan.connect(bellSend);
+          bellSend.connect(delaySend);
+
+          applyModeConfig();
+        }
+
+        function cancelModeTransition() {
+          if (!modeTransition) return;
+          window.clearTimeout(modeTransition);
+          modeTransition = 0;
+        }
+
+        function applyModeConfig() {
+          stepSeconds = 60 / MODES[mode].bpm / 4;
+          barSeconds = stepSeconds * 16;
+          if (!ctx) return;
+
+          const now = ctx.currentTime;
+          const ambient = mode === "ambient";
+          delayNode.delayTime.setTargetAtTime(ambient ? 1.15 : stepSeconds * 3, now, 0.05);
+          delayFeedback.gain.setTargetAtTime(ambient ? 0.42 : 0.3, now, 0.1);
+          delayFilter.frequency.setTargetAtTime(ambient ? 1900 : 2600, now, 0.1);
+          padSend.gain.setTargetAtTime(ambient ? 0.4 : 0.18, now, 0.1);
+          arpSend.gain.setTargetAtTime(ambient ? 0.05 : 0.34, now, 0.1);
+          leadSend.gain.setTargetAtTime(ambient ? 0.55 : 0.42, now, 0.1);
+          bellSend.gain.setTargetAtTime(ambient ? 0.55 : 0.05, now, 0.1);
+          leadBus.gain.setTargetAtTime(ambient ? 0.62 : 0.7, now, 0.1);
+          bellBus.gain.setTargetAtTime(ambient ? 0.55 : 0.3, now, 0.1);
+          arpBus.gain.setTargetAtTime(ambient ? 0.5 : 0.85, now, 0.2);
+        }
+
+        function setMode(nextMode) {
+          if (nextMode !== "drive" && nextMode !== "ambient") return;
+          if (nextMode === mode) return;
+
+          mode = nextMode;
+          stepSeconds = 60 / MODES[mode].bpm / 4;
+          barSeconds = stepSeconds * 16;
+          cancelModeTransition();
+          applyModeConfig();
+
+          if (!enabled || !active || !ctx) {
+            stopTimer();
+            stepIndex = 0;
+            barIndex = 0;
+            nextStepTime = 0;
+            stopSustainedVoices();
+            music = compose(state.seed || 1);
+            resetLeadState();
+            return;
+          }
+
+          stopTimer();
+          const now = ctx.currentTime;
+          powerGain.gain.cancelScheduledValues(now);
+          powerGain.gain.setTargetAtTime(0, now, 0.06);
+          stopSustainedVoices(now + 0.24);
+          stepIndex = 0;
+          barIndex = 0;
+          nextStepTime = 0;
+          music = compose(state.seed || 1);
+          resetLeadState();
+
+          modeTransition = window.setTimeout(() => {
+            modeTransition = 0;
+            if (!enabled || !active || !ctx) return;
+            nextStepTime = ctx.currentTime + 0.08;
+            powerGain.gain.cancelScheduledValues(ctx.currentTime);
+            powerGain.gain.setTargetAtTime(1, ctx.currentTime, 0.16);
+            startTimer();
+          }, 380);
         }
 
         function kick(time, velocity) {
@@ -1965,26 +2120,29 @@
         }
 
         function soloNote(time, midi, duration, velocity) {
+          const ambient = mode === "ambient";
           const frequency = midiToFreq(midi);
           const previousFrequency = lead.lastMidi !== null ? midiToFreq(lead.lastMidi) : frequency;
           const glide = lead.lastMidi !== null
             && lead.lastMidi !== midi
-            && time - lead.lastTime < 0.42
+            && time - lead.lastTime < (ambient ? 0.8 : 0.42)
             && Math.abs(lead.lastMidi - midi) <= 7;
-          const scoop = !glide && music.random() < 0.25;
+          const scoop = !glide && music.random() < (ambient ? 0.15 : 0.25);
+          const detune = ambient ? Math.max(3, music.leadDetune * 0.6) : music.leadDetune;
 
           const oscA = ctx.createOscillator();
           const oscB = ctx.createOscillator();
-          oscA.type = music.leadWave;
-          oscB.type = music.leadWave;
-          oscA.detune.value = -music.leadDetune;
-          oscB.detune.value = music.leadDetune;
+          oscA.type = ambient ? "triangle" : music.leadWave;
+          oscB.type = ambient ? "triangle" : music.leadWave;
+          oscA.detune.value = -detune;
+          oscB.detune.value = detune;
 
           if (glide) {
+            const glideTime = ambient ? 0.16 : 0.09;
             oscA.frequency.setValueAtTime(previousFrequency, time);
             oscB.frequency.setValueAtTime(previousFrequency, time);
-            oscA.frequency.exponentialRampToValueAtTime(frequency, time + 0.09);
-            oscB.frequency.exponentialRampToValueAtTime(frequency, time + 0.09);
+            oscA.frequency.exponentialRampToValueAtTime(frequency, time + glideTime);
+            oscB.frequency.exponentialRampToValueAtTime(frequency, time + glideTime);
           } else {
             const startFrequency = scoop ? frequency * 0.985 : frequency;
             oscA.frequency.setValueAtTime(startFrequency, time);
@@ -1997,27 +2155,29 @@
 
           const filter = ctx.createBiquadFilter();
           filter.type = "lowpass";
-          filter.Q.value = 4.2;
-          const opening = Math.min(6200, modulation.leadCut + velocity * 900);
+          filter.Q.value = ambient ? 2.4 : 4.2;
+          const opening = ambient
+            ? Math.min(4200, modulation.leadCut * 0.72 + velocity * 600)
+            : Math.min(6200, modulation.leadCut + velocity * 900);
           filter.frequency.setValueAtTime(opening, time);
           filter.frequency.exponentialRampToValueAtTime(
-            Math.max(520, modulation.leadCut * 0.42),
-            time + Math.min(0.65, duration + 0.12),
+            ambient ? Math.max(380, modulation.leadCut * 0.3) : Math.max(520, modulation.leadCut * 0.42),
+            time + (ambient ? Math.min(1.8, duration + 0.3) : Math.min(0.65, duration + 0.12)),
           );
 
           const gain = ctx.createGain();
-          const peak = 0.1 + velocity * 0.04;
+          const peak = ambient ? 0.075 + velocity * 0.03 : 0.1 + velocity * 0.04;
           gain.gain.setValueAtTime(0.0001, time);
-          gain.gain.exponentialRampToValueAtTime(peak, time + 0.035);
-          gain.gain.setValueAtTime(peak * 0.78, time + Math.min(duration, 0.5));
-          gain.gain.exponentialRampToValueAtTime(0.0001, time + duration + 0.28);
+          gain.gain.exponentialRampToValueAtTime(peak, time + (ambient ? 0.14 : 0.035));
+          gain.gain.setValueAtTime(peak * (ambient ? 0.75 : 0.78), time + Math.min(duration, ambient ? 2 : 0.5));
+          gain.gain.exponentialRampToValueAtTime(0.0001, time + duration + (ambient ? 0.9 : 0.28));
 
           const lfo = ctx.createOscillator();
           const lfoGain = ctx.createGain();
           lfo.type = "sine";
-          lfo.frequency.value = music.leadVibrato;
+          lfo.frequency.value = ambient ? music.leadVibrato * 0.82 : music.leadVibrato;
           lfoGain.gain.setValueAtTime(0, time);
-          lfoGain.gain.linearRampToValueAtTime(10, time + 0.22);
+          lfoGain.gain.linearRampToValueAtTime(ambient ? 6.5 : 10, time + (ambient ? 0.5 : 0.22));
           lfo.connect(lfoGain);
           lfoGain.connect(oscA.detune);
           lfoGain.connect(oscB.detune);
@@ -2027,13 +2187,16 @@
           filter.connect(gain);
           gain.connect(leadBus);
 
-          const end = time + duration + 0.32;
+          const end = time + duration + (ambient ? 1.05 : 0.32);
           oscA.start(time);
           oscB.start(time);
           lfo.start(time);
           oscA.stop(end);
           oscB.stop(end);
           lfo.stop(end);
+          trackVoice(oscA);
+          trackVoice(oscB);
+          trackVoice(lfo);
 
           lead.lastMidi = midi;
           lead.lastTime = time;
@@ -2041,34 +2204,40 @@
 
         function resetLeadState() {
           lead.active = false;
-          lead.rest = 1;
+          lead.rest = mode === "ambient" ? 2 : 1;
           lead.phrase = 0;
           lead.bar = 0;
           lead.degree = music.leadCenter;
           lead.lastMidi = null;
           lead.lastTime = -10;
           lead.motifPos = 0;
-          if (ctx && arpBus) arpBus.gain.setTargetAtTime(0.85, ctx.currentTime, 0.2);
+          if (ctx && arpBus) arpBus.gain.setTargetAtTime(mode === "ambient" ? 0.5 : 0.85, ctx.currentTime, 0.2);
         }
 
         function scheduleLeadBar(bar, barInPhrase, time) {
           const chord = chordAt(bar);
           const boost = Boolean(state.boost || state.keyBoost);
-          const energy = Math.min(1, 0.62 + barInPhrase * 0.11 + (boost ? 0.12 : 0));
-          const weights = [0.84, 0.28, 0.54, 0.3, 0.72, 0.26, 0.56, 0.32];
+          const ambient = mode === "ambient";
+          const energy = ambient
+            ? Math.min(1, 0.45 + barInPhrase * 0.08 + (boost ? 0.06 : 0))
+            : Math.min(1, 0.62 + barInPhrase * 0.11 + (boost ? 0.12 : 0));
+          const weights = ambient
+            ? [0.52, 0.1, 0.22, 0.05, 0.38, 0.05, 0.18, 0.06]
+            : [0.84, 0.28, 0.54, 0.3, 0.72, 0.26, 0.56, 0.32];
           const onsets = [];
 
           for (let i = 0; i < 8; i += 1) {
             if (music.random() < weights[i] * energy) onsets.push(i * 2);
           }
-          if (!onsets.includes(0) && music.random() < 0.7) onsets.push(0);
-          if (onsets.length < 2) {
+          if (!onsets.includes(0) && music.random() < (ambient ? 0.55 : 0.7)) onsets.push(0);
+          const minimumNotes = ambient ? 1 : 2;
+          if (onsets.length < minimumNotes) {
             for (const step of [0, 8, 4, 12]) {
-              if (onsets.length >= 2) break;
+              if (onsets.length >= minimumNotes) break;
               if (!onsets.includes(step)) onsets.push(step);
             }
           }
-          if (barInPhrase === lead.phrase - 1 && music.random() < 0.55) {
+          if (!ambient && barInPhrase === lead.phrase - 1 && music.random() < 0.55) {
             if (!onsets.includes(13)) onsets.push(13);
             if (!onsets.includes(15)) onsets.push(15);
           }
@@ -2078,7 +2247,9 @@
             const step = onsets[i];
             const next = i + 1 < onsets.length ? onsets[i + 1] : 16;
             const gapSteps = next - step;
-            const duration = Math.max(0.16, Math.min(0.85, gapSteps * STEP_SECONDS * 0.88));
+            const duration = ambient
+              ? Math.max(0.45, Math.min(2.4, gapSteps * stepSeconds * 0.95))
+              : Math.max(0.16, Math.min(0.85, gapSteps * stepSeconds * 0.88));
             const strong = step % 4 === 0;
             const interval = music.leadMotif[lead.motifPos % music.leadMotif.length];
             lead.motifPos += 1;
@@ -2094,8 +2265,10 @@
             }
 
             const midi = degreeToMidi(lead.degree);
-            const velocity = Math.min(1, 0.66 + energy * 0.22 + (strong ? 0.1 : 0));
-            soloNote(time + step * STEP_SECONDS, midi, duration, velocity);
+            const velocity = ambient
+              ? Math.min(1, 0.55 + energy * 0.2 + (strong ? 0.08 : 0))
+              : Math.min(1, 0.66 + energy * 0.22 + (strong ? 0.1 : 0));
+            soloNote(time + step * stepSeconds, midi, duration, velocity);
           }
         }
 
@@ -2105,10 +2278,12 @@
           if (lead.active) {
             if (lead.bar >= lead.phrase) {
               lead.active = false;
-              lead.rest = 1 + Math.floor(music.random() * 3);
+              lead.rest = mode === "ambient"
+                ? 3 + Math.floor(music.random() * 4)
+                : 1 + Math.floor(music.random() * 3);
               lead.phrase = 0;
               lead.bar = 0;
-              arpBus.gain.setTargetAtTime(0.85, time, 0.3);
+              arpBus.gain.setTargetAtTime(mode === "ambient" ? 0.5 : 0.85, time, 0.3);
               return;
             }
           } else {
@@ -2118,12 +2293,14 @@
             }
 
             lead.active = true;
-            lead.phrase = 2 + Math.floor(music.random() * 3);
+            lead.phrase = mode === "ambient"
+              ? 2 + Math.floor(music.random() * 2)
+              : 2 + Math.floor(music.random() * 3);
             lead.bar = 0;
             lead.degree = Math.max(8, Math.min(17, music.leadCenter + Math.floor(music.random() * 3) - 1));
             lead.motifPos = 0;
             lead.lastMidi = null;
-            arpBus.gain.setTargetAtTime(0.62, time, 0.3);
+            if (mode === "drive") arpBus.gain.setTargetAtTime(0.62, time, 0.3);
           }
 
           scheduleLeadBar(bar, lead.bar, time);
@@ -2141,8 +2318,8 @@
           const envelope = ctx.createGain();
           envelope.gain.setValueAtTime(0.0001, time);
           envelope.gain.linearRampToValueAtTime(0.88, time + 0.3);
-          envelope.gain.setValueAtTime(0.88, time + BAR_SECONDS * 0.62);
-          envelope.gain.exponentialRampToValueAtTime(0.0001, time + BAR_SECONDS + 0.55);
+          envelope.gain.setValueAtTime(0.88, time + barSeconds * 0.62);
+          envelope.gain.exponentialRampToValueAtTime(0.0001, time + barSeconds + 0.55);
           filter.connect(envelope);
           envelope.connect(padBus);
 
@@ -2157,7 +2334,8 @@
               osc.connect(gain);
               gain.connect(filter);
               osc.start(time);
-              osc.stop(time + BAR_SECONDS + 0.7);
+              osc.stop(time + barSeconds + 0.7);
+              trackVoice(osc);
             }
           }
         }
@@ -2177,6 +2355,177 @@
           gain.connect(bus);
           noise.start(time, Math.random() * 1.0, 0.9);
           noise.stop(time + 0.9);
+        }
+
+        function bell(time, midi, velocity) {
+          const frequency = midiToFreq(midi);
+          const carrier = ctx.createOscillator();
+          const partial = ctx.createOscillator();
+          const high = ctx.createOscillator();
+          carrier.type = "sine";
+          partial.type = "sine";
+          high.type = "sine";
+          carrier.frequency.value = frequency;
+          partial.frequency.value = frequency * 2.01;
+          high.frequency.value = frequency * 3.99;
+
+          const gain = ctx.createGain();
+          const partialGain = ctx.createGain();
+          const highGain = ctx.createGain();
+          partialGain.gain.value = 0.34;
+          highGain.gain.value = 0.1;
+
+          const peak = 0.075 * velocity;
+          gain.gain.setValueAtTime(0.0001, time);
+          gain.gain.exponentialRampToValueAtTime(peak, time + 0.006);
+          gain.gain.exponentialRampToValueAtTime(0.0001, time + 3.2);
+
+          carrier.connect(gain);
+          partial.connect(partialGain);
+          partialGain.connect(gain);
+          high.connect(highGain);
+          highGain.connect(gain);
+          gain.connect(bellBus);
+
+          const end = time + 3.3;
+          carrier.start(time);
+          partial.start(time);
+          high.start(time);
+          carrier.stop(end);
+          partial.stop(end);
+          high.stop(end);
+          trackVoice(carrier);
+          trackVoice(partial);
+          trackVoice(high);
+        }
+
+        function ambientPad(time, chord) {
+          const intervals = chord.quality === "m" ? [0, 3, 7, 10] : [0, 4, 7, 11];
+          const root = music.key + 12 + chord.offset;
+          const duration = barSeconds * 2;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.Q.value = 0.55;
+          filter.frequency.setValueAtTime(modulation.padCut * 0.7, time);
+          filter.frequency.linearRampToValueAtTime(modulation.padCut * 1.15, time + duration * 0.55);
+
+          const lfo = ctx.createOscillator();
+          const lfoGain = ctx.createGain();
+          lfo.type = "sine";
+          lfo.frequency.value = 0.045;
+          lfoGain.gain.value = 320;
+          lfo.connect(lfoGain);
+          lfoGain.connect(filter.frequency);
+
+          const envelope = ctx.createGain();
+          envelope.gain.setValueAtTime(0.0001, time);
+          envelope.gain.linearRampToValueAtTime(0.9, time + 1.6);
+          envelope.gain.setValueAtTime(0.9, time + duration * 0.7);
+          envelope.gain.exponentialRampToValueAtTime(0.0001, time + duration + 2.2);
+          filter.connect(envelope);
+          envelope.connect(padBus);
+
+          for (const interval of intervals) {
+            for (const detune of [-8, 8]) {
+              const osc = ctx.createOscillator();
+              osc.type = "sawtooth";
+              osc.frequency.value = midiToFreq(root + interval);
+              osc.detune.value = detune;
+              const gain = ctx.createGain();
+              gain.gain.value = 0.032;
+              osc.connect(gain);
+              gain.connect(filter);
+              osc.start(time);
+              osc.stop(time + duration + 2.4);
+              trackVoice(osc);
+            }
+          }
+
+          lfo.start(time);
+          lfo.stop(time + duration + 2.4);
+          trackVoice(lfo);
+        }
+
+        function ambientBass(time, chord) {
+          let midi = music.key - 12 + chord.offset;
+          while (midi < 36) midi += 12;
+          const frequency = midiToFreq(midi);
+          const duration = barSeconds * 2;
+
+          const sine = ctx.createOscillator();
+          const saw = ctx.createOscillator();
+          sine.type = "sine";
+          saw.type = "sawtooth";
+          sine.frequency.value = frequency;
+          saw.frequency.value = frequency;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.frequency.value = 220;
+          filter.Q.value = 1;
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.0001, time);
+          gain.gain.linearRampToValueAtTime(0.16, time + 1.2);
+          gain.gain.setValueAtTime(0.16, time + duration * 0.7);
+          gain.gain.exponentialRampToValueAtTime(0.0001, time + duration + 1.5);
+
+          sine.connect(gain);
+          saw.connect(filter);
+          filter.connect(gain);
+          gain.connect(bassBus);
+
+          sine.start(time);
+          saw.start(time);
+          sine.stop(time + duration + 1.6);
+          saw.stop(time + duration + 1.6);
+          trackVoice(sine);
+          trackVoice(saw);
+        }
+
+        function ambientAir(time, duration) {
+          const noise = ctx.createBufferSource();
+          noise.buffer = noiseBuffer;
+          noise.loop = true;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = "bandpass";
+          filter.Q.value = 0.9;
+          filter.frequency.setValueAtTime(260, time);
+          filter.frequency.linearRampToValueAtTime(900, time + duration);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.0001, time);
+          gain.gain.linearRampToValueAtTime(0.016, time + duration * 0.4);
+          gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(bus);
+          noise.start(time);
+          noise.stop(time + duration + 0.1);
+          trackVoice(noise);
+        }
+
+        function scheduleAmbientStep(step, bar, time) {
+          if (step % 2 !== 0) return;
+
+          const boost = Boolean(state.boost || state.keyBoost);
+          if (music.random() >= 0.16 + (boost ? 0.06 : 0)) return;
+
+          const chord = chordAt(bar);
+          const intervals = chordIntervals(chord);
+          const base = music.key + 12 + chord.offset;
+          let midi = base + intervals[Math.floor(music.random() * intervals.length)];
+          if (music.random() < 0.2) midi += 12;
+
+          const noteTime = time + step * stepSeconds;
+          bell(noteTime, midi, 0.65 + music.random() * 0.3);
+
+          if (step <= 12 && music.random() < 0.18) {
+            bell(noteTime + stepSeconds * 2, midi + 7, 0.45 + music.random() * 0.2);
+          }
         }
 
         function sweep(time) {
@@ -2255,10 +2604,25 @@
           }
 
           advanceLead(bar, time);
-          pad(time, chordAt(bar));
+
+          if (mode === "ambient") {
+            if (bar % 2 === 0) {
+              const chord = chordAt(bar);
+              ambientPad(time, chord);
+              ambientBass(time, chord);
+            }
+            if (bar % 4 === 2) ambientAir(time, barSeconds * 2);
+          } else {
+            pad(time, chordAt(bar));
+          }
         }
 
         function scheduleStep(step, bar, time) {
+          if (mode === "ambient") {
+            scheduleAmbientStep(step, bar, time);
+            return;
+          }
+
           const chord = chordAt(bar);
           const boost = Boolean(state.boost || state.keyBoost);
           const fill = bar % 8 === 7;
@@ -2298,6 +2662,7 @@
         function updateModulation() {
           if (!ctx) return;
           const now = ctx.currentTime;
+          const ambient = mode === "ambient";
           const altitude = clamp01((state.camY - 16) / 82);
           const boost = Boolean(state.boost || state.keyBoost);
 
@@ -2308,11 +2673,12 @@
 
           arpPan.pan.setTargetAtTime(Math.max(-0.65, Math.min(0.65, state.roll * 22)), now, 0.08);
           leadPan.pan.setTargetAtTime(
-            Math.max(-0.7, Math.min(0.7, state.roll * 16 + Math.sin(now * 0.35) * 0.08)),
+            Math.max(-0.7, Math.min(0.7, state.roll * 16 + Math.sin(now * (ambient ? 0.18 : 0.35)) * (ambient ? 0.2 : 0.08))),
             now,
             0.12,
           );
-          arpSend.gain.setTargetAtTime(0.26 + (boost ? 0.14 : 0), now, 0.18);
+          bellPan.pan.setTargetAtTime(Math.sin(now * 0.16) * 0.42, now, 0.2);
+          if (!ambient) arpSend.gain.setTargetAtTime(0.26 + (boost ? 0.14 : 0), now, 0.18);
         }
 
         function scheduler() {
@@ -2329,7 +2695,7 @@
             scheduleStep(step, bar, nextStepTime);
             stepIndex = (stepIndex + 1) % 16;
             if (stepIndex === 0) barIndex += 1;
-            nextStepTime += STEP_SECONDS;
+            nextStepTime += stepSeconds;
             guard += 1;
           }
 
@@ -2358,7 +2724,10 @@
           }
           const next = Boolean(running && !document.hidden);
           if (next === active) {
-            if (!next) stopTimer();
+            if (!next) {
+              stopTimer();
+              cancelModeTransition();
+            }
             return;
           }
 
@@ -2373,6 +2742,7 @@
             updateModulation();
             startTimer();
           } else {
+            cancelModeTransition();
             powerGain.gain.cancelScheduledValues(now);
             powerGain.gain.setTargetAtTime(0, now, 0.05);
             stopTimer();
@@ -2389,6 +2759,7 @@
 
         async function start() {
           if (!available || enabled) return available;
+          cancelModeTransition();
           try {
             if (!ctx) buildGraph();
           } catch (error) {
@@ -2410,6 +2781,7 @@
           }
 
           enabled = true;
+          stopSustainedVoices(ctx.currentTime);
           setVolume(volume);
           resetLeadState();
           setRunning(state.running);
@@ -2419,11 +2791,13 @@
         function stop() {
           enabled = false;
           active = false;
+          cancelModeTransition();
           stopTimer();
           if (ctx) {
             const now = ctx.currentTime;
             powerGain.gain.cancelScheduledValues(now);
             powerGain.gain.setTargetAtTime(0, now, 0.05);
+            stopSustainedVoices(now + 0.25);
           }
           nextStepTime = 0;
         }
@@ -2438,7 +2812,7 @@
         }
 
         function getMeta() {
-          return `${music ? music.keyName : "D"} MINOR / ${BPM} BPM`;
+          return `${music ? music.keyName : "D"} MINOR / ${MODES[mode].bpm} BPM`;
         }
 
         function drawScope(canvasElement) {
@@ -2506,6 +2880,8 @@
           isEnabled: () => enabled,
           isActive: () => active,
           getLead: () => lead.active,
+          getMode: () => mode,
+          setMode,
           start,
           stop,
           setRunning,
@@ -2535,6 +2911,8 @@
       const volumeInput = document.getElementById("volume");
       const volumeValue = document.getElementById("volumeValue");
       const audioScope = document.getElementById("audioScope");
+      const modeDrive = document.getElementById("modeDrive");
+      const modeAmbient = document.getElementById("modeAmbient");
 
       function telemetry() {
         const boosting = state.boost || state.keyBoost;
@@ -2553,10 +2931,11 @@
         const isEnabled = audio.isEnabled();
         const isActive = audio.isActive();
         const solo = isActive && audio.getLead();
+        const currentMode = audio.getMode();
         const label = audioError || (isEnabled ? (isActive ? "Playing" : "Standby") : "Silent");
         const leadLabel = solo ? "Solo" : "Rest";
         const meta = audio.getMeta();
-        const cache = `${isEnabled}|${isActive}|${label}|${meta}|${audioError}|${leadLabel}`;
+        const cache = `${isEnabled}|${isActive}|${label}|${meta}|${audioError}|${leadLabel}|${currentMode}`;
 
         if (cache === audioUiCache) return;
         audioUiCache = cache;
@@ -2570,6 +2949,12 @@
 
         if (audioLead.textContent !== leadLabel) audioLead.textContent = leadLabel;
         audioLead.classList.toggle("is-solo", solo);
+
+        const driveActive = currentMode === "drive";
+        modeDrive.classList.toggle("is-active", driveActive);
+        modeDrive.setAttribute("aria-pressed", driveActive ? "true" : "false");
+        modeAmbient.classList.toggle("is-active", !driveActive);
+        modeAmbient.setAttribute("aria-pressed", driveActive ? "false" : "true");
 
         if (audioMeta.textContent !== meta) audioMeta.textContent = meta;
       }
@@ -2666,6 +3051,18 @@
         const value = Number(volumeInput.value);
         volumeValue.textContent = String(value).padStart(3, "0");
         audio.setVolume(value / 100);
+      });
+
+      modeDrive.addEventListener("click", () => {
+        audio.setMode("drive");
+        syncAudioUi();
+        audio.drawScope(audioScope);
+      });
+
+      modeAmbient.addEventListener("click", () => {
+        audio.setMode("ambient");
+        syncAudioUi();
+        audio.drawScope(audioScope);
       });
 
       audio.setVolume(Number(volumeInput.value) / 100);
